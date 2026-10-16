@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Fuit'Eau — Fiches</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ── Tokens ── */
+:root {
+  --bg:        #F0F4F8;
+  --surface:   #FFFFFF;
+  --border:    #D1DCE8;
+  --primary:   #0C5E8A;
+  --primary-h: #0A4D72;
+  --accent:    #E05A20;
+  --text:      #1A2B3C;
+  --muted:     #6B7F93;
+  --error:     #C0392B;
+  --success:   #1A7A45;
+  --warn:      #B45309;
+  --shadow:    0 2px 12px rgba(12,94,138,.10);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:      #0D1B2A; --surface: #162535; --border: #2A3F54;
+    --primary: #2A8FBF; --primary-h: #3AA0D0;
+    --text:    #E2EAF0; --muted: #8BA4BA;
+    --shadow:  0 2px 12px rgba(0,0,0,.4);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:      #0D1B2A; --surface: #162535; --border: #2A3F54;
+  --primary: #2A8FBF; --primary-h: #3AA0D0;
+  --text:    #E2EAF0; --muted: #8BA4BA;
+  --shadow:  0 2px 12px rgba(0,0,0,.4);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  padding-left: max(0px, env(safe-area-inset-left,0px));
+  padding-right: max(0px, env(safe-area-inset-right,0px));
+}
+
+/* ── Header ── */
+.header {
+  background: var(--primary);
+  color: #fff;
+  padding: .75rem max(1rem, env(safe-area-inset-left,0px));
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  position: sticky;
+  top: env(safe-area-inset-top,0px);
+  z-index: 100;
+  box-shadow: 0 1px 8px rgba(0,0,0,.2);
+}
+.header-logo {
+  display: flex; align-items: center; gap: .55rem;
+  flex: 1; min-width: 0;
+}
+.header-icon {
+  width: 34px; height: 34px; flex-shrink: 0;
+  background: rgba(255,255,255,.18);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.header-icon svg { width: 20px; height: 20px; fill: #fff; }
+.header-title { font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; white-space: nowrap; }
+.header-sub { font-size: .72rem; opacity: .75; }
+.header-actions { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
+.btn-icon {
+  background: rgba(255,255,255,.15);
+  border: none; color: #fff;
+  width: 34px; height: 34px; border-radius: 8px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.btn-icon:hover { background: rgba(255,255,255,.28); }
+.btn-icon svg { width: 18px; height: 18px; }
+
+/* ── Filters ── */
+.filters {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: .75rem max(1rem, env(safe-area-inset-left,0px));
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+}
+.filter-chip {
+  padding: .3rem .7rem;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.filter-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.filter-sep { flex-basis: 100%; height: 0; }
+.search-wrap { flex: 1; min-width: 160px; position: relative; }
+.search-wrap svg { position: absolute; left: .6rem; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; fill: var(--muted); pointer-events: none; }
+.search-input {
+  width: 100%; padding: .4rem .7rem .4rem 2rem;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: .85rem;
+  outline: none;
+}
+.search-input:focus { border-color: var(--primary); }
+
+/* ── Stats bar ── */
+.stats-bar {
+  padding: .6rem max(1rem, env(safe-area-inset-left,0px));
+  display: flex; gap: 1rem; flex-wrap: wrap;
+  font-size: .8rem; color: var(--muted);
+}
+.stat-item { display: flex; align-items: center; gap: .3rem; }
+.stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── Liste ── */
+.list-wrap {
+  padding: .75rem max(1rem, env(safe-area-inset-left,0px));
+  padding-bottom: 5rem;
+  display: flex; flex-direction: column; gap: .65rem;
+}
+
+.fiche-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: .9rem 1rem;
+  cursor: pointer;
+  transition: box-shadow .15s, transform .1s;
+  border-left: 4px solid transparent;
+}
+.fiche-card:hover { box-shadow: 0 4px 18px rgba(12,94,138,.15); transform: translateY(-1px); }
+.fiche-card.urgente  { border-left-color: #D97706; }
+.fiche-card.critique { border-left-color: #DC2626; }
+.fiche-card.normale  { border-left-color: #0C5E8A; }
+.fiche-card.resolu   { border-left-color: #1A7A45; opacity: .75; }
+.fiche-card.ferme    { border-left-color: #8BA4BA; opacity: .6; }
+
+.fiche-head {
+  display: flex; align-items: flex-start; gap: .6rem; margin-bottom: .45rem;
+}
+.fiche-ref {
+  font-size: .78rem; font-weight: 700;
+  color: var(--primary); font-family: monospace; letter-spacing: .03em;
+  white-space: nowrap;
+}
+.fiche-addr {
+  flex: 1; min-width: 0;
+  font-weight: 600; font-size: .9rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.badges { display: flex; gap: .3rem; flex-wrap: wrap; }
+.badge {
+  display: inline-flex; align-items: center;
+  padding: .15rem .5rem; border-radius: 10px;
+  font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+}
+.badge-av  { background: #DBEAFE; color: #1D4ED8; }
+.badge-ap  { background: #F3E8FF; color: #6D28D9; }
+.badge-nou { background: #DBEAFE; color: #1D4ED8; }
+.badge-enc { background: #FEF3C7; color: #92400E; }
+.badge-res { background: #D1FAE5; color: #065F46; }
+.badge-fer { background: #F3F4F6; color: #6B7280; }
+.badge-nor { background: #E0F2FE; color: #0369A1; }
+.badge-urg { background: #FEF3C7; color: #92400E; }
+.badge-cri { background: #FEE2E2; color: #991B1B; }
+.badge-ale { background: #FEF9C3; color: #854D0E; }
+
+.fiche-desc {
+  font-size: .83rem; color: var(--muted);
+  margin-top: .2rem;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.fiche-foot {
+  margin-top: .55rem;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: .75rem; color: var(--muted);
+}
+.fiche-intervenant { font-weight: 600; color: var(--text); }
+
+/* ── FAB ── */
+.fab {
+  position: fixed;
+  bottom: max(1.5rem, env(safe-area-inset-bottom,0px));
+  right: max(1.5rem, env(safe-area-inset-right,0px));
+  z-index: 200;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 56px; height: 56px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 18px rgba(224,90,32,.4);
+  cursor: pointer;
+  transition: transform .15s, background .15s;
+  font-size: 1.6rem; line-height: 1;
+}
+.fab:hover { transform: scale(1.08); background: #c94d16; }
+
+/* ── Empty ── */
+.empty {
+  text-align: center; padding: 3rem 1rem;
+  color: var(--muted); font-size: .9rem;
+}
+.empty svg { width: 48px; height: 48px; fill: var(--border); margin-bottom: .75rem; display: block; margin-inline: auto; }
+
+/* ── Modal overlay ── */
+.overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.overlay[hidden] { display: none; }
+.modal {
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  width: 100%; max-width: 600px;
+  max-height: 92dvh;
+  overflow-y: auto;
+  padding: 1.25rem max(1.25rem, env(safe-area-inset-right,0px)) max(1.25rem, env(safe-area-inset-bottom,0px)) max(1.25rem, env(safe-area-inset-left,0px));
+  box-shadow: 0 -4px 32px rgba(0,0,0,.2);
+}
+.modal-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: var(--border); margin: 0 auto .9rem;
+}
+.modal-title {
+  font-size: 1rem; font-weight: 700; margin-bottom: 1rem;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.modal-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); padding: .2rem;
+  display: flex; align-items: center;
+}
+.modal-close svg { width: 20px; height: 20px; }
+
+.form-row { margin-bottom: .85rem; }
+.form-row label {
+  display: block; font-size: .78rem; font-weight: 700;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+  margin-bottom: .3rem;
+}
+.form-row input, .form-row textarea, .form-row select {
+  width: 100%;
+  padding: .6rem .85rem;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: .9rem;
+  outline: none;
+  transition: border-color .15s;
+  font-family: inherit;
+}
+.form-row textarea { resize: vertical; min-height: 80px; }
+.form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: var(--primary); }
+.form-cols { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+@media (max-width: 420px) { .form-cols { grid-template-columns: 1fr; } }
+
+.geo-btn {
+  margin-top: .35rem;
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .35rem .7rem; border-radius: 6px;
+  background: var(--bg); border: 1.5px solid var(--border);
+  color: var(--muted); font-size: .8rem; cursor: pointer;
+  transition: border-color .15s;
+}
+.geo-btn:hover { border-color: var(--primary); color: var(--primary); }
+.geo-btn svg { width: 14px; height: 14px; }
+
+.btn-submit {
+  width: 100%; padding: .75rem;
+  background: var(--primary); color: #fff;
+  border: none; border-radius: 8px;
+  font-size: .95rem; font-weight: 600;
+  cursor: pointer; margin-top: .5rem;
+  transition: background .15s, opacity .15s;
+}
+.btn-submit:hover { background: var(--primary-h); }
+.btn-submit:disabled { opacity: .55; cursor: default; }
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+  border-radius: 50%; animation: spin .7s linear infinite;
+  vertical-align: middle; margin-right: .35rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.form-msg {
+  padding: .5rem .8rem; border-radius: 7px; font-size: .85rem;
+  margin-top: .5rem; display: none;
+}
+.form-msg.error   { background: #fde8e6; color: var(--error); display: block; }
+.form-msg.success { background: #e6f4ec; color: var(--success); display: block; }
+
+/* ── Detail overlay ── */
+.detail-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.detail-overlay[hidden] { display: none; }
+.detail-modal {
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  width: 100%; max-width: 600px;
+  max-height: 92dvh;
+  overflow-y: auto;
+  padding: 1.25rem max(1.25rem, env(safe-area-inset-right,0px)) max(1.25rem, env(safe-area-inset-bottom,0px)) max(1.25rem, env(safe-area-inset-left,0px));
+  box-shadow: 0 -4px 32px rgba(0,0,0,.2);
+}
+.detail-ref {
+  font-size: .8rem; font-weight: 700; color: var(--primary);
+  font-family: monospace; letter-spacing: .04em; margin-bottom: .25rem;
+}
+.detail-addr {
+  font-size: 1.05rem; font-weight: 700; margin-bottom: .75rem;
+}
+.detail-section { margin-bottom: 1rem; }
+.detail-section h3 {
+  font-size: .72rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: .4rem;
+}
+.detail-desc {
+  font-size: .88rem; color: var(--text); line-height: 1.5;
+  background: var(--bg); border-radius: 8px; padding: .6rem .8rem;
+}
+.detail-meta {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .4rem;
+}
+.detail-meta-item { font-size: .82rem; }
+.detail-meta-item .label { color: var(--muted); font-size: .72rem; display: block; margin-bottom: .1rem; }
+
+/* Statut buttons */
+.statut-btns { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .35rem; }
+.statut-btn {
+  padding: .35rem .7rem; border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--bg); color: var(--muted);
+  font-size: .78rem; font-weight: 700;
+  cursor: pointer; transition: all .15s;
+  text-transform: uppercase; letter-spacing: .03em;
+}
+.statut-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.statut-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
+.statut-btn:disabled { opacity: .4; cursor: default; }
+
+.histoline {
+  display: flex; gap: .6rem; font-size: .8rem;
+  padding: .45rem 0; border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+}
+.histoline:last-child { border: none; }
+.histoline-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--primary); margin-top: .35rem; flex-shrink: 0;
+}
+.histoline-content { flex: 1; min-width: 0; }
+.histoline-statut { font-weight: 700; }
+.histoline-meta { color: var(--muted); font-size: .74rem; }
+
+.loader-wrap { text-align: center; padding: 2rem; color: var(--muted); font-size: .88rem; }
+
+/* Intervenant field */
+.intervenant-btns { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .3rem; }
+.intervenant-btn {
+  padding: .3rem .65rem; border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--bg); color: var(--muted);
+  font-size: .78rem; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+}
+.intervenant-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="header">
+  <div class="header-logo">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C12 2 4 10.5 4 15a8 8 0 0016 0C20 10.5 12 2 12 2z"/></svg>
+    </div>
+    <div>
+      <div class="header-title">Fuit'Eau</div>
+      <div class="header-sub">Fiches fuite AEP</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn-icon" id="btnRefresh" title="Actualiser">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M4 4v5h5M20 20v-5h-5"/>
+        <path d="M4 9a8 8 0 0114-3.46M20 15a8 8 0 01-14 3.46"/>
+      </svg>
+    </button>
+    <button class="btn-icon" id="btnLogout" title="Déconnexion">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ── Filters ── -->
+<div class="filters">
+  <div class="search-wrap">
+    <svg viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+    <input class="search-input" id="searchInput" type="search" placeholder="Adresse, commune, référence…">
+  </div>
+  <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+    <button class="filter-chip active" data-filter="statut" data-val="">Tous</button>
+    <button class="filter-chip" data-filter="statut" data-val="nouveau">Nouveau</button>
+    <button class="filter-chip" data-filter="statut" data-val="en_cours">En cours</button>
+    <button class="filter-chip" data-filter="statut" data-val="resolu">Résolu</button>
+    <button class="filter-chip" data-filter="statut" data-val="ferme">Fermé</button>
+  </div>
+  <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+    <button class="filter-chip active" data-filter="urgence" data-val="">Toute urgence</button>
+    <button class="filter-chip" data-filter="urgence" data-val="critique">🔴 Critique</button>
+    <button class="filter-chip" data-filter="urgence" data-val="urgente">🟡 Urgente</button>
+    <button class="filter-chip" data-filter="urgence" data-val="normale">🔵 Normale</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-bar" id="statsBar"></div>
+
+<!-- List -->
+<div class="list-wrap" id="listWrap">
+  <div class="loader-wrap">Chargement…</div>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="btnCreate" title="Nouvelle fiche">＋</button>
+
+<!-- ── Modal création ── -->
+<div class="overlay" id="createOverlay" hidden>
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">
+      Nouvelle fiche fuite
+      <button class="modal-close" id="btnCloseCreate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <form id="createForm">
+      <div class="form-cols">
+        <div class="form-row">
+          <label>Position *</label>
+          <select id="fPosition" required>
+            <option value="">— Choisir —</option>
+            <option value="avant_compteur">Avant compteur (TRVO)</option>
+            <option value="apres_compteur">Après compteur (RU)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Urgence *</label>
+          <select id="fUrgence" required>
+            <option value="normale">Normale</option>
+            <option value="urgente">Urgente</option>
+            <option value="critique">Critique</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-cols">
+        <div class="form-row">
+          <label>Adresse *</label>
+          <input type="text" id="fAdresse" placeholder="12 rue des Alpes" required>
+        </div>
+        <div class="form-row">
+          <label>Commune *</label>
+          <input type="text" id="fCommune" placeholder="Voiron" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Description *</label>
+        <textarea id="fDescription" placeholder="Type de fuite, débit estimé, localisation précise…" required></textarea>
+      </div>
+
+      <div class="form-row">
+        <label>Intervenant</label>
+        <div class="intervenant-btns" id="intervenantBtns"></div>
+        <input type="text" id="fIntervenant" placeholder="Nom de l'agent" style="margin-top:.4rem">
+      </div>
+
+      <div class="form-row">
+        <label>Coordonnées GPS</label>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <input type="text" id="fLat" placeholder="Lat" style="flex:1">
+          <input type="text" id="fLng" placeholder="Lng" style="flex:1">
+          <button type="button" class="geo-btn" id="btnGeo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+            </svg>
+            Ma position
+          </button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Commentaire interne</label>
+        <textarea id="fCommentaire" placeholder="Notes internes…" style="min-height:56px"></textarea>
+      </div>
+
+      <div class="form-msg" id="createMsg"></div>
+      <button type="submit" class="btn-submit" id="btnSubmit">Créer la fiche</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Detail modal ── -->
+<div class="detail-overlay" id="detailOverlay" hidden>
+  <div class="detail-modal" id="detailModal">
+    <div class="modal-handle"></div>
+    <div id="detailContent">
+      <div class="loader-wrap">Chargement…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────
+const SUPABASE_URL  = 'https://nygrwybqyrkqrkmszisv.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55Z3J3eWJxeXJrcXJrbXN6aXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxNTEyMDIsImV4cCI6MjEwNzcyNzIwMn0.f-mZi4Pyq7Rbh9k1OUvr3ufp77i8xzybub4QO2VNWUM';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const INTERVENANTS = ['Jérémy','Jean-Phi','Agent 3','Agent 4'];
+
+// ── Auth guard ──────────────────────────────────────────────────
+let myRole = '', myEmail = '';
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.replace('./index.html'); return; }
+
+  // Profil
+  const { data: p } = await sb.from('fuites_profils').select('role,actif').eq('id', session.user.id).single();
+  if (!p || !p.actif) { await sb.signOut(); window.location.replace('./index.html'); return; }
+
+  myRole  = p.role;
+  myEmail = session.user.email;
+  try { sessionStorage.setItem('fe_role', myRole); } catch {}
+
+  initIntervenants();
+  loadFiches();
+  setupRealtime();
+})();
+
+// ── Logout ──────────────────────────────────────────────────────
+document.getElementById('btnLogout').addEventListener('click', async () => {
+  await sb.auth.signOut();
+  window.location.replace('./index.html');
+});
+
+// ── Filters & search ───────────────────────────────────────────
+let filterStatut  = '';
+let filterUrgence = '';
+let searchTerm    = '';
+
+document.querySelectorAll('[data-filter="statut"]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-filter="statut"]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterStatut = btn.dataset.val;
+    renderFiches();
+  });
+});
+document.querySelectorAll('[data-filter="urgence"]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-filter="urgence"]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterUrgence = btn.dataset.val;
+    renderFiches();
+  });
+});
+let searchTimeout;
+document.getElementById('searchInput').addEventListener('input', e => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => { searchTerm = e.target.value.toLowerCase(); renderFiches(); }, 200);
+});
+
+document.getElementById('btnRefresh').addEventListener('click', loadFiches);
+
+// ── Data ────────────────────────────────────────────────────────
+let allFiches = [];
+
+async function loadFiches() {
+  const { data, error } = await sb
+    .from('fuites')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (!error) { allFiches = data || []; renderFiches(); }
+}
+
+function renderFiches() {
+  let fiches = allFiches;
+  if (filterStatut)  fiches = fiches.filter(f => f.statut === filterStatut);
+  if (filterUrgence) fiches = fiches.filter(f => f.urgence === filterUrgence);
+  if (searchTerm) fiches = fiches.filter(f =>
+    (f.adresse||'').toLowerCase().includes(searchTerm) ||
+    (f.commune||'').toLowerCase().includes(searchTerm) ||
+    (f.reference||'').toLowerCase().includes(searchTerm) ||
+    (f.description||'').toLowerCase().includes(searchTerm)
+  );
+
+  renderStats();
+
+  const wrap = document.getElementById('listWrap');
+  if (!fiches.length) {
+    wrap.innerHTML = `<div class="empty">
+      <svg viewBox="0 0 24 24"><path d="M12 2C12 2 4 10.5 4 15a8 8 0 0016 0C20 10.5 12 2 12 2z" opacity=".3"/></svg>
+      Aucune fiche${filterStatut || filterUrgence || searchTerm ? ' pour ces filtres' : ''}
+    </div>`;
+    return;
+  }
+
+  wrap.innerHTML = fiches.map(f => {
+    const cls = f.statut === 'resolu' ? 'resolu' : f.statut === 'ferme' ? 'ferme' : f.urgence;
+    const urgBadge = { normale:'badge-nor', urgente:'badge-urg', critique:'badge-cri' }[f.urgence] || '';
+    const statBadge = { nouveau:'badge-nou', en_cours:'badge-enc', resolu:'badge-res', ferme:'badge-fer' }[f.statut] || '';
+    const posBadge = f.position === 'avant_compteur' ? 'badge-av' : 'badge-ap';
+    const posLabel = f.position === 'avant_compteur' ? 'Avant cpt' : 'Après cpt';
+    const alerte = f.alerte_6h_envoyee ? `<span class="badge badge-ale">⚠ Alerte 6h</span>` : '';
+    const date = new Date(f.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+
+    return `<div class="fiche-card ${cls}" data-id="${f.id}" onclick="openDetail('${f.id}')">
+      <div class="fiche-head">
+        <span class="fiche-ref">${f.reference || '—'}</span>
+        <span class="fiche-addr">${f.adresse || ''}${f.commune ? ', '+f.commune : ''}</span>
+        <div class="badges">
+          <span class="badge ${urgBadge}">${f.urgence}</span>
+          <span class="badge ${statBadge}">${f.statut.replace('_',' ')}</span>
+          <span class="badge ${posBadge}">${posLabel}</span>
+          ${alerte}
+        </div>
+      </div>
+      ${f.description ? `<div class="fiche-desc">${escHtml(f.description)}</div>` : ''}
+      <div class="fiche-foot">
+        <span>${date}</span>
+        <span class="fiche-intervenant">${f.intervenant || '—'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderStats() {
+  const counts = { nouveau:0, en_cours:0, resolu:0, ferme:0 };
+  allFiches.forEach(f => { if (counts[f.statut] !== undefined) counts[f.statut]++; });
+  document.getElementById('statsBar').innerHTML = `
+    <span class="stat-item"><span class="stat-dot" style="background:#1D4ED8"></span>${counts.nouveau} nouveau${counts.nouveau>1?'x':''}</span>
+    <span class="stat-item"><span class="stat-dot" style="background:#D97706"></span>${counts.en_cours} en cours</span>
+    <span class="stat-item"><span class="stat-dot" style="background:#065F46"></span>${counts.resolu} résolu${counts.resolu>1?'s':''}</span>
+    <span class="stat-item"><span class="stat-dot" style="background:#6B7280"></span>${counts.ferme} fermé${counts.ferme>1?'s':''}</span>
+    <span style="margin-left:auto">${allFiches.length} fiche${allFiches.length>1?'s':''} au total</span>
+  `;
+}
+
+// ── Realtime ────────────────────────────────────────────────────
+function setupRealtime() {
+  sb.channel('fuites-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fuites' }, () => loadFiches())
+    .subscribe();
+}
+
+// ── Intervenants ────────────────────────────────────────────────
+function initIntervenants() {
+  const wrap = document.getElementById('intervenantBtns');
+  INTERVENANTS.forEach(name => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'intervenant-btn';
+    btn.textContent = name;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.intervenant-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('fIntervenant').value = name;
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+// ── Création ────────────────────────────────────────────────────
+document.getElementById('btnCreate').addEventListener('click', () => {
+  document.getElementById('createOverlay').hidden = false;
+});
+document.getElementById('btnCloseCreate').addEventListener('click', () => {
+  document.getElementById('createOverlay').hidden = true;
+});
+document.getElementById('createOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.hidden = true;
+});
+
+// Géolocalisation
+document.getElementById('btnGeo').addEventListener('click', () => {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    document.getElementById('fLat').value = pos.coords.latitude.toFixed(6);
+    document.getElementById('fLng').value = pos.coords.longitude.toFixed(6);
+  }, () => alert('Géolocalisation indisponible'));
+});
+
+document.getElementById('createForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('btnSubmit');
+  const msg = document.getElementById('createMsg');
+  msg.className = 'form-msg';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Création…';
+
+  const lat = parseFloat(document.getElementById('fLat').value) || null;
+  const lng = parseFloat(document.getElementById('fLng').value) || null;
+
+  const payload = {
+    position:      document.getElementById('fPosition').value,
+    urgence:       document.getElementById('fUrgence').value,
+    adresse:       document.getElementById('fAdresse').value.trim(),
+    commune:       document.getElementById('fCommune').value.trim(),
+    description:   document.getElementById('fDescription').value.trim(),
+    intervenant:   document.getElementById('fIntervenant').value.trim() || null,
+    commentaire:   document.getElementById('fCommentaire').value.trim() || null,
+    coordonnees:   lat && lng ? `POINT(${lng} ${lat})` : null,
+    statut:        'nouveau',
+  };
+
+  const { error } = await sb.from('fuites').insert(payload);
+
+  if (error) {
+    msg.textContent = error.message;
+    msg.className = 'form-msg error';
+    btn.disabled = false;
+    btn.textContent = 'Créer la fiche';
+    return;
+  }
+
+  document.getElementById('createOverlay').hidden = true;
+  document.getElementById('createForm').reset();
+  document.querySelectorAll('.intervenant-btn').forEach(b => b.classList.remove('active'));
+  btn.disabled = false;
+  btn.textContent = 'Créer la fiche';
+  loadFiches();
+});
+
+// ── Détail ──────────────────────────────────────────────────────
+let currentFicheId = null;
+
+async function openDetail(id) {
+  currentFicheId = id;
+  document.getElementById('detailOverlay').hidden = false;
+  document.getElementById('detailContent').innerHTML = '<div class="loader-wrap">Chargement…</div>';
+
+  const [{ data: f }, { data: hist }] = await Promise.all([
+    sb.from('fuites').select('*').eq('id', id).single(),
+    sb.from('fuites_historique').select('*').eq('fuite_id', id).order('created_at', { ascending: false })
+  ]);
+
+  if (!f) { document.getElementById('detailContent').innerHTML = '<div class="loader-wrap">Fiche introuvable.</div>'; return; }
+
+  const canEdit = ['superadmin','agent_rdf'].includes(myRole);
+  const posBadge = f.position === 'avant_compteur' ? 'badge-av' : 'badge-ap';
+  const posLabel = f.position === 'avant_compteur' ? 'Avant compteur (TRVO)' : 'Après compteur (RU)';
+  const date = d => new Date(d).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+  const statutOptions = [
+    { val:'nouveau',   label:'Nouveau' },
+    { val:'en_cours',  label:'En cours' },
+    { val:'resolu',    label:'Résolu' },
+    { val:'ferme',     label:'Fermé' },
+  ];
+  const statutBtns = canEdit ? `
+    <div class="detail-section">
+      <h3>Changer le statut</h3>
+      <div class="statut-btns">
+        ${statutOptions.map(s => `<button class="statut-btn ${f.statut===s.val?'active':''}"
+          data-statut="${s.val}" onclick="changeStatut('${id}','${s.val}')">${s.label}</button>`).join('')}
+      </div>
+    </div>` : '';
+
+  const histoHtml = (hist||[]).length ? (hist||[]).map(h => `
+    <div class="histoline">
+      <div class="histoline-dot"></div>
+      <div class="histoline-content">
+        <div class="histoline-statut">${h.statut_apres.replace('_',' ')} ← ${h.statut_avant.replace('_',' ')}</div>
+        <div class="histoline-meta">${h.commentaire ? escHtml(h.commentaire)+' · ' : ''}${date(h.created_at)}</div>
+      </div>
+    </div>`).join('') : '<div style="font-size:.82rem;color:var(--muted)">Aucune modification enregistrée.</div>';
+
+  document.getElementById('detailContent').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+      <div>
+        <div class="detail-ref">${f.reference || '—'}</div>
+        <div class="detail-addr">${f.adresse || ''}${f.commune ? ', '+f.commune : ''}</div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('detailOverlay').hidden=true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="width:22px;height:22px">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="badges" style="margin-bottom:.85rem;gap:.4rem">
+      <span class="badge ${posBadge}">${posLabel}</span>
+      <span class="badge ${{ normale:'badge-nor', urgente:'badge-urg', critique:'badge-cri' }[f.urgence]}">${f.urgence}</span>
+      <span class="badge ${{ nouveau:'badge-nou', en_cours:'badge-enc', resolu:'badge-res', ferme:'badge-fer' }[f.statut]}" id="currentStatutBadge">${f.statut.replace('_',' ')}</span>
+      ${f.alerte_6h_envoyee ? '<span class="badge badge-ale">⚠ Alerte 6h envoyée</span>' : ''}
+    </div>
+
+    <div class="detail-section">
+      <h3>Description</h3>
+      <div class="detail-desc">${escHtml(f.description || '—')}</div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Informations</h3>
+      <div class="detail-meta">
+        <div class="detail-meta-item"><span class="label">Intervenant</span>${f.intervenant || '—'}</div>
+        <div class="detail-meta-item"><span class="label">Créé le</span>${date(f.created_at)}</div>
+        <div class="detail-meta-item"><span class="label">Dernière modif.</span>${date(f.updated_at)}</div>
+        <div class="detail-meta-item"><span class="label">Coordonnées</span>${f.coordonnees ? '✓ GPS enregistré' : '—'}</div>
+      </div>
+    </div>
+
+    ${f.commentaire ? `<div class="detail-section"><h3>Commentaire</h3><div class="detail-desc">${escHtml(f.commentaire)}</div></div>` : ''}
+
+    ${statutBtns}
+
+    <div class="detail-section">
+      <h3>Historique</h3>
+      ${histoHtml}
+    </div>
+  `;
+}
+
+async function changeStatut(id, nouveauStatut) {
+  // Désactiver les boutons pendant la mise à jour
+  document.querySelectorAll('.statut-btn').forEach(b => b.disabled = true);
+
+  const { error } = await sb.from('fuites').update({ statut: nouveauStatut }).eq('id', id);
+
+  if (!error) {
+    loadFiches();
+    // Re-ouvrir le détail pour rafraîchir
+    await openDetail(id);
+  } else {
+    document.querySelectorAll('.statut-btn').forEach(b => b.disabled = false);
+    alert('Erreur : ' + error.message);
+  }
+}
+
+document.getElementById('detailOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.hidden = true;
+});
+
+// ── Utils ───────────────────────────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

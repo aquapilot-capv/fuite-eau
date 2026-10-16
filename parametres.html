@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Fuit'Eau — Paramètres</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg:#F0F4F8; --surface:#FFFFFF; --border:#D1DCE8;
+  --primary:#0C5E8A; --primary-h:#0A4D72; --accent:#E05A20;
+  --text:#1A2B3C; --muted:#6B7F93; --error:#C0392B; --success:#1A7A45;
+  --shadow:0 2px 12px rgba(12,94,138,.10);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D1B2A;--surface:#162535;--border:#2A3F54;--primary:#2A8FBF;--primary-h:#3AA0D0;
+  --text:#E2EAF0;--muted:#8BA4BA;--shadow:0 2px 12px rgba(0,0,0,.4);color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0D1B2A;--surface:#162535;--border:#2A3F54;--primary:#2A8FBF;--primary-h:#3AA0D0;
+  --text:#E2EAF0;--muted:#8BA4BA;--shadow:0 2px 12px rgba(0,0,0,.4);color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;
+  padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+.header{background:var(--primary);color:#fff;padding:.75rem max(1rem,env(safe-area-inset-left,0px));
+  display:flex;align-items:center;gap:.75rem;position:sticky;top:env(safe-area-inset-top,0px);
+  z-index:100;box-shadow:0 1px 8px rgba(0,0,0,.2)}
+.header-logo{display:flex;align-items:center;gap:.55rem;flex:1;min-width:0}
+.header-icon{width:34px;height:34px;flex-shrink:0;background:rgba(255,255,255,.18);border-radius:8px;
+  display:flex;align-items:center;justify-content:center}
+.header-icon svg{width:20px;height:20px;fill:#fff}
+.header-title{font-weight:700;font-size:1.05rem}
+.header-sub{font-size:.72rem;opacity:.75}
+.nav-back{background:rgba(255,255,255,.15);border:none;color:#fff;padding:.35rem .75rem;
+  border-radius:8px;cursor:pointer;font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:.35rem}
+.nav-back:hover{background:rgba(255,255,255,.28)}
+.nav-back svg{width:16px;height:16px}
+
+.content{padding:1rem max(1rem,env(safe-area-inset-left,0px));padding-bottom:3rem;max-width:650px}
+
+.section-header{
+  font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;margin:1.25rem 0 .6rem;padding-bottom:.35rem;
+  border-bottom:1px solid var(--border);
+}
+.section-header:first-child{margin-top:0}
+.section-desc{font-size:.8rem;color:var(--muted);margin-bottom:.8rem;line-height:1.5}
+
+/* Destinataire card */
+.dest-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:.85rem 1rem;margin-bottom:.5rem;box-shadow:var(--shadow)}
+.dest-head{display:flex;align-items:center;gap:.65rem;margin-bottom:.65rem}
+.dest-nom{font-weight:700;font-size:.92rem;flex:1}
+.toggle{position:relative;width:42px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;border-radius:12px;background:var(--border);cursor:pointer;transition:background .2s}
+.toggle input:checked+.toggle-track{background:var(--primary)}
+.toggle-thumb{position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.toggle input:checked~.toggle-thumb{transform:translateX(18px)}
+
+.dest-fields{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+@media(max-width:420px){.dest-fields{grid-template-columns:1fr}}
+.field-wrap label{display:block;font-size:.72rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.04em;margin-bottom:.2rem}
+.field-wrap input{width:100%;padding:.45rem .7rem;border:1.5px solid var(--border);
+  border-radius:7px;background:var(--bg);color:var(--text);font-size:.85rem;outline:none;transition:border-color .15s}
+.field-wrap input:focus{border-color:var(--primary)}
+.dest-type{display:flex;gap:.35rem;margin-top:.5rem;flex-wrap:wrap}
+.type-chip{padding:.2rem .6rem;border-radius:20px;border:1.5px solid var(--border);background:var(--bg);
+  color:var(--muted);font-size:.74rem;font-weight:700;cursor:pointer;transition:all .15s;text-transform:uppercase}
+.type-chip.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.dest-save{margin-top:.6rem;padding:.4rem .9rem;background:var(--primary);color:#fff;
+  border:none;border-radius:7px;font-size:.82rem;font-weight:600;cursor:pointer;transition:background .15s}
+.dest-save:hover{background:var(--primary-h)}
+
+/* Paramètres généraux */
+.param-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:.9rem 1rem;margin-bottom:.5rem;box-shadow:var(--shadow)}
+.param-row{display:flex;align-items:center;gap:.75rem;padding:.5rem 0;
+  border-bottom:1px solid var(--border)}
+.param-row:last-child{border:none;padding-bottom:0}
+.param-label{flex:1;min-width:0}
+.param-label strong{display:block;font-size:.88rem;font-weight:600}
+.param-label span{display:block;font-size:.76rem;color:var(--muted);margin-top:.1rem}
+.param-input{width:80px;padding:.35rem .6rem;border:1.5px solid var(--border);border-radius:6px;
+  background:var(--bg);color:var(--text);font-size:.88rem;text-align:right;outline:none}
+.param-input:focus{border-color:var(--primary)}
+.param-unit{font-size:.8rem;color:var(--muted);white-space:nowrap}
+
+.save-all{margin-top:1rem;width:100%;padding:.7rem;background:var(--primary);color:#fff;
+  border:none;border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer;transition:background .15s,opacity .15s}
+.save-all:hover{background:var(--primary-h)}
+.save-all:disabled{opacity:.5;cursor:default}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);
+  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:.35rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.toast{position:fixed;bottom:max(1.5rem,env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);
+  background:#1A2B3C;color:#fff;padding:.55rem 1.1rem;border-radius:20px;
+  font-size:.83rem;font-weight:600;z-index:500;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+.loader-wrap{text-align:center;padding:2rem;color:var(--muted);font-size:.88rem}
+.access-denied{text-align:center;padding:3rem 1rem;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-logo">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C12 2 4 10.5 4 15a8 8 0 0016 0C20 10.5 12 2 12 2z"/></svg>
+    </div>
+    <div>
+      <div class="header-title">Paramètres</div>
+      <div class="header-sub">Fuit'Eau · Configuration</div>
+    </div>
+  </div>
+  <button class="nav-back" onclick="window.location.href='./fiches.html'">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+      <path d="M19 12H5M12 5l-7 7 7 7"/>
+    </svg>
+    Fiches
+  </button>
+</header>
+
+<div class="content" id="mainContent">
+  <div class="loader-wrap">Chargement…</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL  = 'https://nygrwybqyrkqrkmszisv.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55Z3J3eWJxeXJrcXJrbXN6aXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxNTEyMDIsImV4cCI6MjEwNzcyNzIwMn0.f-mZi4Pyq7Rbh9k1OUvr3ufp77i8xzybub4QO2VNWUM';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.replace('./index.html'); return; }
+
+  const { data: p } = await sb.from('fuites_profils').select('role,actif').eq('id', session.user.id).single();
+  if (!p || !p.actif) { await sb.auth.signOut(); window.location.replace('./index.html'); return; }
+
+  if (p.role !== 'superadmin') {
+    document.getElementById('mainContent').innerHTML =
+      '<div class="access-denied">Accès réservé aux administrateurs.</div>';
+    return;
+  }
+
+  const [{ data: dests }, { data: params }] = await Promise.all([
+    sb.from('fuites_destinataires').select('*').order('id'),
+    sb.from('fuites_parametres').select('*')
+  ]);
+
+  renderPage(dests || [], params || []);
+})();
+
+function getParam(params, cle, fallback) {
+  const p = params.find(p => p.cle === cle);
+  return p ? p.valeur : fallback;
+}
+
+function renderPage(dests, params) {
+  const alerteActive = getParam(params, 'alerte_6h_active', 'true') === 'true';
+  const alerteDelai  = getParam(params, 'alerte_6h_delai_h', '6');
+
+  const TYPES = ['nouvelle_fuite','changement_statut','alerte_6h'];
+  const typeLabel = { nouvelle_fuite:'Nouvelle fuite', changement_statut:'Changement statut', alerte_6h:'Alerte 6h' };
+
+  function destCard(d) {
+    const types = (d.types_envoi || []);
+    return `
+    <div class="dest-card" id="dest-${d.id}">
+      <div class="dest-head">
+        <div class="dest-nom">${escHtml(d.nom)}</div>
+        <label class="toggle" title="${d.actif?'Désactiver':'Activer'}">
+          <input type="checkbox" ${d.actif?'checked':''} data-dest="${d.id}" data-field="actif"
+            onchange="updateDestActif(${d.id}, this.checked)">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+      <div class="dest-fields">
+        <div class="field-wrap">
+          <label>Nom affiché</label>
+          <input type="text" id="nom-${d.id}" value="${escHtml(d.nom)}">
+        </div>
+        <div class="field-wrap">
+          <label>E-mail</label>
+          <input type="email" id="email-${d.id}" value="${escHtml(d.email||'')}">
+        </div>
+      </div>
+      <div style="margin-top:.5rem">
+        <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">Types d'envoi</div>
+        <div class="dest-type" id="types-${d.id}">
+          ${TYPES.map(t => `<span class="type-chip ${types.includes(t)?'active':''}" data-type="${t}"
+            onclick="toggleType(this, ${d.id})">${typeLabel[t]}</span>`).join('')}
+        </div>
+      </div>
+      <button class="dest-save" onclick="saveDest(${d.id})">Enregistrer</button>
+    </div>`;
+  }
+
+  document.getElementById('mainContent').innerHTML = `
+    <div class="section-header">Destinataires e-mail</div>
+    <p class="section-desc">
+      Les destinataires actifs reçoivent les e-mails selon les types d'envoi cochés.<br>
+      <strong>Avant compteur</strong> = réseau (TRVO) &nbsp;·&nbsp; <strong>Après compteur</strong> = usager (RU)
+    </p>
+    ${dests.map(destCard).join('')}
+
+    <div class="section-header">Alertes automatiques</div>
+    <div class="param-card">
+      <div class="param-row">
+        <div class="param-label">
+          <strong>Alerte sans mise à jour</strong>
+          <span>Envoie un e-mail si une fiche reste sans changement de statut au-delà du délai</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="alerteActive" ${alerteActive?'checked':''}>
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+      <div class="param-row">
+        <div class="param-label">
+          <strong>Délai avant alerte</strong>
+          <span>Durée d'inactivité déclenchant l'alerte</span>
+        </div>
+        <input type="number" class="param-input" id="alerteDelai" min="1" max="72" value="${alerteDelai}">
+        <span class="param-unit">heures</span>
+      </div>
+    </div>
+    <button class="save-all" id="btnSaveParams" onclick="saveParams()">Enregistrer les paramètres</button>
+  `;
+}
+
+function toggleType(el, destId) {
+  el.classList.toggle('active');
+}
+
+async function updateDestActif(id, actif) {
+  const { error } = await sb.from('fuites_destinataires').update({ actif }).eq('id', id);
+  if (error) showToast('Erreur : ' + error.message);
+  else showToast(actif ? 'Destinataire activé' : 'Destinataire désactivé');
+}
+
+async function saveDest(id) {
+  const nom   = document.getElementById(`nom-${id}`).value.trim();
+  const email = document.getElementById(`email-${id}`).value.trim();
+  const types = [...document.querySelectorAll(`#types-${id} .type-chip.active`)].map(el => el.dataset.type);
+
+  const { error } = await sb.from('fuites_destinataires').update({ nom, email, types_envoi: types }).eq('id', id);
+  if (error) showToast('Erreur : ' + error.message);
+  else showToast('Destinataire enregistré');
+}
+
+async function saveParams() {
+  const btn = document.getElementById('btnSaveParams');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Enregistrement…';
+
+  const alerteActive = document.getElementById('alerteActive').checked;
+  const alerteDelai  = document.getElementById('alerteDelai').value;
+
+  const updates = [
+    sb.from('fuites_parametres').upsert({ cle:'alerte_6h_active', valeur: String(alerteActive) }, { onConflict:'cle' }),
+    sb.from('fuites_parametres').upsert({ cle:'alerte_6h_delai_h', valeur: alerteDelai }, { onConflict:'cle' }),
+  ];
+
+  const results = await Promise.all(updates);
+  const err = results.find(r => r.error);
+
+  btn.disabled = false;
+  btn.textContent = 'Enregistrer les paramètres';
+
+  if (err) showToast('Erreur : ' + err.error.message);
+  else showToast('Paramètres enregistrés');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Fuit'Eau — Carte</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root {
+  --bg:#F0F4F8; --surface:#FFFFFF; --border:#D1DCE8;
+  --primary:#0C5E8A; --primary-h:#0A4D72; --accent:#E05A20;
+  --text:#1A2B3C; --muted:#6B7F93; --error:#C0392B; --success:#1A7A45;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D1B2A;--surface:#162535;--border:#2A3F54;--primary:#2A8FBF;--primary-h:#3AA0D0;
+  --text:#E2EAF0;--muted:#8BA4BA;color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0D1B2A;--surface:#162535;--border:#2A3F54;--primary:#2A8FBF;--primary-h:#3AA0D0;
+  --text:#E2EAF0;--muted:#8BA4BA;color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;
+  padding-left:max(0px,env(safe-area-inset-left,0px));
+  padding-right:max(0px,env(safe-area-inset-right,0px));
+  background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif}
+.header{background:var(--primary);color:#fff;padding:.65rem max(1rem,env(safe-area-inset-left,0px));
+  display:flex;align-items:center;gap:.75rem;
+  position:relative;z-index:1000;box-shadow:0 1px 8px rgba(0,0,0,.2)}
+.header-logo{display:flex;align-items:center;gap:.55rem;flex:1;min-width:0}
+.header-icon{width:32px;height:32px;flex-shrink:0;background:rgba(255,255,255,.18);border-radius:7px;
+  display:flex;align-items:center;justify-content:center}
+.header-icon svg{width:18px;height:18px;fill:#fff}
+.header-title{font-weight:700;font-size:.95rem}
+.header-sub{font-size:.68rem;opacity:.75}
+.nav-back{background:rgba(255,255,255,.15);border:none;color:#fff;padding:.3rem .65rem;
+  border-radius:7px;cursor:pointer;font-size:.78rem;font-weight:600;display:flex;align-items:center;gap:.3rem}
+.nav-back:hover{background:rgba(255,255,255,.28)}
+.nav-back svg{width:15px;height:15px}
+
+#map {
+  height: calc(100dvh - 52px - env(safe-area-inset-top,0px));
+  width: 100%;
+}
+
+/* Leaflet popup custom */
+.leaflet-popup-content-wrapper {
+  border-radius: 10px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,.15) !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
+  padding: 0 !important;
+}
+.leaflet-popup-content { margin: 0 !important; }
+.popup-inner {
+  padding: .75rem 1rem;
+  min-width: 200px;
+  max-width: 260px;
+}
+.popup-ref { font-size: .73rem; font-weight: 700; color: #0C5E8A; font-family: monospace; }
+.popup-addr { font-size: .88rem; font-weight: 700; margin: .15rem 0 .4rem; line-height: 1.3; }
+.popup-badges { display: flex; gap: .3rem; flex-wrap: wrap; margin-bottom: .35rem; }
+.popup-badge {
+  display: inline-flex; align-items: center;
+  padding: .12rem .45rem; border-radius: 8px;
+  font-size: .68rem; font-weight: 700; text-transform: uppercase;
+}
+.pb-nou { background: #DBEAFE; color: #1D4ED8; }
+.pb-enc { background: #FEF3C7; color: #92400E; }
+.pb-res { background: #D1FAE5; color: #065F46; }
+.pb-fer { background: #F3F4F6; color: #6B7280; }
+.pb-nor { background: #E0F2FE; color: #0369A1; }
+.pb-urg { background: #FEF3C7; color: #92400E; }
+.pb-cri { background: #FEE2E2; color: #991B1B; }
+.popup-desc { font-size: .8rem; color: #6B7F93; line-height: 1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
+.popup-btn {
+  display: block; width: 100%; margin-top: .5rem;
+  padding: .4rem .7rem; background: #0C5E8A; color: #fff;
+  border: none; border-radius: 7px; font-size: .8rem; font-weight: 600;
+  cursor: pointer; text-align: center;
+}
+
+/* Legend */
+.map-legend {
+  position: absolute; bottom: max(1rem, env(safe-area-inset-bottom,0px));
+  left: max(1rem, env(safe-area-inset-left,0px));
+  z-index: 1000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .6rem .8rem;
+  font-size: .75rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,.12);
+  min-width: 120px;
+}
+.legend-title { font-weight: 700; margin-bottom: .4rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: .68rem; }
+.legend-item { display: flex; align-items: center; gap: .4rem; margin-bottom: .2rem; }
+.legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; border: 2px solid rgba(0,0,0,.15); }
+
+/* GPS panel */
+.no-gps-panel {
+  position: absolute; bottom: max(1rem, env(safe-area-inset-bottom,0px));
+  right: max(1rem, env(safe-area-inset-right,0px));
+  z-index: 1000;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: .65rem .8rem;
+  font-size: .78rem; color: var(--muted); max-width: 180px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.12); line-height: 1.4;
+  display: none;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-logo">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C12 2 4 10.5 4 15a8 8 0 0016 0C20 10.5 12 2 12 2z"/></svg>
+    </div>
+    <div>
+      <div class="header-title">Carte des fuites</div>
+      <div class="header-sub">Fuit'Eau · CAPV</div>
+    </div>
+  </div>
+  <button class="nav-back" onclick="window.location.href='./fiches.html'">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+      <path d="M19 12H5M12 5l-7 7 7 7"/>
+    </svg>
+    Fiches
+  </button>
+</header>
+
+<div id="map"></div>
+
+<div class="map-legend">
+  <div class="legend-title">Urgence</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#DC2626"></div>Critique</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#D97706"></div>Urgente</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#0C5E8A"></div>Normale</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#1A7A45"></div>Résolue</div>
+</div>
+
+<div class="no-gps-panel" id="noGpsPanel">
+  Certaines fiches n'ont pas de coordonnées GPS et n'apparaissent pas sur la carte.
+</div>
+
+<script>
+const SUPABASE_URL  = 'https://nygrwybqyrkqrkmszisv.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55Z3J3eWJxeXJrcXJrbXN6aXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxNTEyMDIsImV4cCI6MjEwNzcyNzIwMn0.f-mZi4Pyq7Rbh9k1OUvr3ufp77i8xzybub4QO2VNWUM';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// Centre sur Voiron / CAPV
+const MAP_CENTER = [45.3625, 5.5936];
+const MAP_ZOOM   = 12;
+
+let map;
+
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.replace('./index.html'); return; }
+
+  map = L.map('map', { center: MAP_CENTER, zoom: MAP_ZOOM });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+    maxZoom: 19
+  }).addTo(map);
+
+  const { data: fuites } = await sb
+    .from('fuites')
+    .select('id,reference,adresse,commune,statut,urgence,position,description,coordonnees')
+    .not('coordonnees', 'is', null)
+    .order('created_at', { ascending: false });
+
+  const { data: all } = await sb.from('fuites').select('id', { count:'exact', head:true });
+
+  if (!fuites || fuites.length === 0) {
+    document.getElementById('noGpsPanel').style.display = 'block';
+    document.getElementById('noGpsPanel').textContent = 'Aucune fiche avec coordonnées GPS. Ajoutez la position lors de la création.';
+    return;
+  }
+
+  // Avertissement si certaines fiches n'ont pas de GPS
+  if (all && fuites.length < (all.length || 0)) {
+    document.getElementById('noGpsPanel').style.display = 'block';
+  }
+
+  const colorMap = { critique:'#DC2626', urgente:'#D97706', normale:'#0C5E8A', resolu:'#1A7A45', ferme:'#9CA3AF' };
+  const bounds = [];
+
+  fuites.forEach(f => {
+    // coordonnees est stocké comme "POINT(lng lat)"
+    const match = String(f.coordonnees).match(/POINT\(([^ ]+) ([^ )]+)\)/);
+    if (!match) return;
+    const lng = parseFloat(match[1]);
+    const lat = parseFloat(match[2]);
+    if (isNaN(lat) || isNaN(lng)) return;
+
+    bounds.push([lat, lng]);
+
+    const color = f.statut === 'resolu' || f.statut === 'ferme'
+      ? colorMap[f.statut]
+      : colorMap[f.urgence] || '#0C5E8A';
+
+    const marker = L.circleMarker([lat, lng], {
+      radius: f.urgence === 'critique' ? 12 : f.urgence === 'urgente' ? 10 : 8,
+      fillColor: color,
+      color: '#fff',
+      weight: 2,
+      opacity: 1,
+      fillOpacity: f.statut === 'ferme' ? 0.4 : 0.85
+    });
+
+    const statBadge = { nouveau:'pb-nou', en_cours:'pb-enc', resolu:'pb-res', ferme:'pb-fer' }[f.statut] || '';
+    const urgBadge  = { normale:'pb-nor', urgente:'pb-urg', critique:'pb-cri' }[f.urgence] || '';
+    const posLabel  = f.position === 'avant_compteur' ? 'Avant cpt' : 'Après cpt';
+
+    marker.bindPopup(`
+      <div class="popup-inner">
+        <div class="popup-ref">${f.reference || '—'}</div>
+        <div class="popup-addr">${f.adresse || ''}${f.commune ? ', '+f.commune : ''}</div>
+        <div class="popup-badges">
+          <span class="popup-badge ${urgBadge}">${f.urgence}</span>
+          <span class="popup-badge ${statBadge}">${f.statut.replace('_',' ')}</span>
+          <span class="popup-badge pb-nou" style="background:#e8f4f8;color:#555">${posLabel}</span>
+        </div>
+        ${f.description ? `<div class="popup-desc">${escHtml(f.description)}</div>` : ''}
+        <button class="popup-btn" onclick="window.location.href='./fiches.html'">Voir les fiches →</button>
+      </div>
+    `, { maxWidth: 280 });
+
+    marker.addTo(map);
+  });
+
+  if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
+  else if (bounds.length === 1) map.setView(bounds[0], 15);
+})();
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
