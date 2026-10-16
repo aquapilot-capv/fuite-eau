@@ -22,6 +22,7 @@
   --success:   #1A7A45;
   --warn:      #B45309;
   --shadow:    0 2px 12px rgba(12,94,138,.10);
+  --sidebar-w: 220px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -43,143 +44,352 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html, body { height: 100%; }
+
 body {
   font-family: system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
-  min-height: 100dvh;
-  padding-left: max(0px, env(safe-area-inset-left,0px));
-  padding-right: max(0px, env(safe-area-inset-right,0px));
+  overflow: hidden;
 }
 
-/* ── Header ── */
-.header {
+/* ── App shell ── */
+.app {
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════ */
+.sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
   background: var(--primary);
-  color: #fff;
-  padding: .75rem max(1rem, env(safe-area-inset-left,0px));
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  transition: transform .22s ease;
+  z-index: 200;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: 1rem 1rem .75rem;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+}
+.sidebar-icon {
+  width: 36px; height: 36px; flex-shrink: 0;
+  background: rgba(255,255,255,.18);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+}
+.sidebar-icon svg { width: 20px; height: 20px; fill: #fff; }
+.sidebar-app-name { font-weight: 800; font-size: 1rem; color: #fff; letter-spacing: -.01em; }
+.sidebar-app-sub  { font-size: .68rem; color: rgba(255,255,255,.6); margin-top: 1px; }
+
+.sidebar-section-label {
+  font-size: .62rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: rgba(255,255,255,.45);
+  padding: .85rem 1rem .35rem;
+}
+
+.sidebar-nav { flex: 1; padding-bottom: .5rem; }
+
+.nav-item {
+  display: flex; align-items: center; gap: .55rem;
+  padding: .55rem 1rem;
+  font-size: .86rem; font-weight: 500;
+  color: rgba(255,255,255,.75);
+  cursor: pointer;
+  border-radius: 0;
+  transition: all .15s;
+  text-decoration: none;
+  border: none; background: none; width: 100%; text-align: left;
+}
+.nav-item svg { width: 17px; height: 17px; flex-shrink: 0; opacity: .8; }
+.nav-item:hover { background: rgba(255,255,255,.1); color: #fff; }
+.nav-item.active { background: rgba(255,255,255,.18); color: #fff; font-weight: 700; }
+.nav-item.active svg { opacity: 1; }
+
+.nav-item.create-btn {
+  background: rgba(255,255,255,.15);
+  border-radius: 8px;
+  margin: .3rem .7rem;
+  padding: .55rem .7rem;
+  color: #fff; font-weight: 600;
+  width: calc(100% - 1.4rem);
+}
+.nav-item.create-btn:hover { background: rgba(255,255,255,.25); }
+
+/* Filtres rapides dans la sidebar */
+.filter-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .42rem 1rem .42rem 1.6rem;
+  font-size: .82rem; color: rgba(255,255,255,.65);
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: left;
+  transition: color .12s;
+}
+.filter-item:hover { color: #fff; }
+.filter-item.active { color: #fff; font-weight: 600; }
+.filter-item .fi-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.filter-item .fi-label { flex: 1; margin-left: .45rem; }
+.filter-item .fi-count {
+  font-size: .72rem; background: rgba(255,255,255,.14);
+  border-radius: 10px; padding: .05rem .4rem;
+  min-width: 20px; text-align: center;
+}
+
+.sidebar-footer {
+  border-top: 1px solid rgba(255,255,255,.12);
+  padding: .75rem 1rem;
+  display: flex; align-items: center; gap: .6rem;
+}
+.user-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(255,255,255,.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .8rem; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.user-info { flex: 1; min-width: 0; }
+.user-email { font-size: .73rem; color: rgba(255,255,255,.7); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-role  { font-size: .68rem; color: rgba(255,255,255,.45); }
+.logout-btn {
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,.5); padding: .2rem;
+  display: flex; align-items: center;
+  transition: color .15s;
+}
+.logout-btn:hover { color: #fff; }
+.logout-btn svg { width: 16px; height: 16px; }
+
+/* Mobile sidebar overlay */
+.sidebar-backdrop {
+  display: none;
+  position: fixed; inset: 0; z-index: 190;
+  background: rgba(0,0,0,.45);
+}
+
+@media (max-width: 700px) {
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    transform: translateX(-100%);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-backdrop { display: block; opacity: 0; pointer-events: none; transition: opacity .22s; }
+  .sidebar-backdrop.open { opacity: 1; pointer-events: auto; }
+}
+
+/* ═══════════════════════════════════
+   MAIN AREA
+═══════════════════════════════════ */
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Topbar ── */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: .6rem max(1rem, env(safe-area-inset-right, 0px)) .6rem 1rem;
+  padding-top: max(.6rem, env(safe-area-inset-top, 0px));
   display: flex;
   align-items: center;
   gap: .75rem;
-  position: sticky;
-  top: env(safe-area-inset-top,0px);
-  z-index: 100;
-  box-shadow: 0 1px 8px rgba(0,0,0,.2);
+  flex-shrink: 0;
 }
-.header-logo {
-  display: flex; align-items: center; gap: .55rem;
-  flex: 1; min-width: 0;
-}
-.header-icon {
-  width: 34px; height: 34px; flex-shrink: 0;
-  background: rgba(255,255,255,.18);
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-}
-.header-icon svg { width: 20px; height: 20px; fill: #fff; }
-.header-title { font-weight: 700; font-size: 1.05rem; letter-spacing: -.01em; white-space: nowrap; }
-.header-sub { font-size: .72rem; opacity: .75; }
-.header-actions { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
-.btn-icon {
-  background: rgba(255,255,255,.15);
-  border: none; color: #fff;
-  width: 34px; height: 34px; border-radius: 8px;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: background .15s;
-}
-.btn-icon:hover { background: rgba(255,255,255,.28); }
-.btn-icon svg { width: 18px; height: 18px; }
-
-/* ── Filters ── */
-.filters {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: .75rem max(1rem, env(safe-area-inset-left,0px));
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
+.hamburger {
+  display: none;
+  background: none; border: none; cursor: pointer;
+  color: var(--text); padding: .2rem;
   align-items: center;
 }
-.filter-chip {
-  padding: .3rem .7rem;
-  border-radius: 20px;
-  border: 1.5px solid var(--border);
-  background: var(--bg);
-  color: var(--muted);
-  font-size: .8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .15s;
-  white-space: nowrap;
-}
-.filter-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-.filter-sep { flex-basis: 100%; height: 0; }
-.search-wrap { flex: 1; min-width: 160px; position: relative; }
-.search-wrap svg { position: absolute; left: .6rem; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; fill: var(--muted); pointer-events: none; }
-.search-input {
-  width: 100%; padding: .4rem .7rem .4rem 2rem;
-  border: 1.5px solid var(--border);
-  border-radius: 20px;
-  background: var(--bg);
+.hamburger svg { width: 22px; height: 22px; }
+@media (max-width: 700px) { .hamburger { display: flex; } }
+
+.topbar-title {
+  flex: 1; min-width: 0;
+  font-size: .95rem; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   color: var(--text);
-  font-size: .85rem;
-  outline: none;
+}
+.topbar-sub {
+  font-size: .75rem; color: var(--muted); font-weight: 400;
+}
+
+.btn-new {
+  display: flex; align-items: center; gap: .4rem;
+  padding: .5rem .9rem;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 8px;
+  font-size: .85rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  transition: background .15s;
+  flex-shrink: 0;
+}
+.btn-new:hover { background: #c94d16; }
+.btn-new svg { width: 16px; height: 16px; }
+
+/* ── Stats row ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .65rem;
+  padding: .75rem 1rem .65rem;
+  flex-shrink: 0;
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+@media (max-width: 520px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); gap: .5rem; }
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: .65rem .85rem;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.stat-card:hover { border-color: var(--primary); box-shadow: var(--shadow); }
+.stat-card.active { border-color: var(--primary); background: var(--primary); }
+.stat-card.active .stat-val, .stat-card.active .stat-lbl { color: #fff; }
+
+.stat-val { font-size: 1.5rem; font-weight: 800; line-height: 1; color: var(--text); }
+.stat-lbl { font-size: .72rem; color: var(--muted); margin-top: .2rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+.stat-card.active .stat-lbl { color: rgba(255,255,255,.75); }
+
+/* ── Toolbar ── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: 0 1rem .65rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+.search-wrap {
+  flex: 1; min-width: 160px; max-width: 280px;
+  position: relative;
+}
+.search-wrap svg {
+  position: absolute; left: .6rem; top: 50%;
+  transform: translateY(-50%);
+  width: 14px; height: 14px; fill: var(--muted); pointer-events: none;
+}
+.search-input {
+  width: 100%; padding: .45rem .7rem .45rem 2rem;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg); color: var(--text);
+  font-size: .84rem; outline: none;
 }
 .search-input:focus { border-color: var(--primary); }
-
-/* ── Stats bar ── */
-.stats-bar {
-  padding: .6rem max(1rem, env(safe-area-inset-left,0px));
-  display: flex; gap: 1rem; flex-wrap: wrap;
-  font-size: .8rem; color: var(--muted);
+.toolbar select {
+  padding: .43rem .65rem;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg); color: var(--text);
+  font-size: .84rem; outline: none; cursor: pointer;
 }
-.stat-item { display: flex; align-items: center; gap: .3rem; }
-.stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+.toolbar select:focus { border-color: var(--primary); }
+.btn-refresh {
+  padding: .43rem .7rem;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg); color: var(--muted);
+  cursor: pointer; display: flex; align-items: center; gap: .3rem;
+  font-size: .84rem; transition: border-color .15s;
+}
+.btn-refresh:hover { border-color: var(--primary); color: var(--primary); }
+.btn-refresh svg { width: 14px; height: 14px; }
 
-/* ── Liste ── */
-.list-wrap {
-  padding: .75rem max(1rem, env(safe-area-inset-left,0px));
-  padding-bottom: 5rem;
-  display: flex; flex-direction: column; gap: .65rem;
+/* ── Table ── */
+.table-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 0 1rem 1rem;
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
 }
 
-.fiche-card {
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 10px;
+  overflow: hidden;
   box-shadow: var(--shadow);
-  padding: .9rem 1rem;
-  cursor: pointer;
-  transition: box-shadow .15s, transform .1s;
-  border-left: 4px solid transparent;
 }
-.fiche-card:hover { box-shadow: 0 4px 18px rgba(12,94,138,.15); transform: translateY(-1px); }
-.fiche-card.urgente  { border-left-color: #D97706; }
-.fiche-card.critique { border-left-color: #DC2626; }
-.fiche-card.normale  { border-left-color: #0C5E8A; }
-.fiche-card.resolu   { border-left-color: #1A7A45; opacity: .75; }
-.fiche-card.ferme    { border-left-color: #8BA4BA; opacity: .6; }
 
-.fiche-head {
-  display: flex; align-items: flex-start; gap: .6rem; margin-bottom: .45rem;
+thead tr {
+  background: var(--bg);
+  border-bottom: 2px solid var(--border);
 }
-.fiche-ref {
-  font-size: .78rem; font-weight: 700;
-  color: var(--primary); font-family: monospace; letter-spacing: .03em;
+th {
+  text-align: left;
+  padding: .65rem .85rem;
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
   white-space: nowrap;
 }
-.fiche-addr {
-  flex: 1; min-width: 0;
-  font-weight: 600; font-size: .9rem;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .1s;
 }
-.badges { display: flex; gap: .3rem; flex-wrap: wrap; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--bg); }
+
+td {
+  padding: .62rem .85rem;
+  font-size: .84rem;
+  vertical-align: middle;
+}
+
+.td-ref {
+  font-family: monospace; font-weight: 700;
+  color: var(--primary); font-size: .8rem;
+  white-space: nowrap;
+}
+.td-date { color: var(--muted); font-size: .78rem; white-space: nowrap; }
+.td-commune { font-weight: 600; white-space: nowrap; }
+.td-adresse { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-intervenant { color: var(--muted); font-size: .8rem; }
+
+/* Badges inline */
 .badge {
   display: inline-flex; align-items: center;
-  padding: .15rem .5rem; border-radius: 10px;
-  font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  padding: .14rem .45rem; border-radius: 9px;
+  font-size: .7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em;
+  white-space: nowrap;
 }
-.badge-av  { background: #DBEAFE; color: #1D4ED8; }
-.badge-ap  { background: #F3E8FF; color: #6D28D9; }
 .badge-nou { background: #DBEAFE; color: #1D4ED8; }
 .badge-enc { background: #FEF3C7; color: #92400E; }
 .badge-res { background: #D1FAE5; color: #065F46; }
@@ -187,50 +397,28 @@ body {
 .badge-nor { background: #E0F2FE; color: #0369A1; }
 .badge-urg { background: #FEF3C7; color: #92400E; }
 .badge-cri { background: #FEE2E2; color: #991B1B; }
+.badge-av  { background: #DBEAFE; color: #1D4ED8; }
+.badge-ap  { background: #F3E8FF; color: #6D28D9; }
 .badge-ale { background: #FEF9C3; color: #854D0E; }
 
-.fiche-desc {
-  font-size: .83rem; color: var(--muted);
-  margin-top: .2rem;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.fiche-foot {
-  margin-top: .55rem;
-  display: flex; align-items: center; justify-content: space-between;
-  font-size: .75rem; color: var(--muted);
-}
-.fiche-intervenant { font-weight: 600; color: var(--text); }
+/* Urgence row accent */
+tbody tr.row-critique td:first-child { border-left: 3px solid #DC2626; }
+tbody tr.row-urgente  td:first-child { border-left: 3px solid #D97706; }
+tbody tr.row-normale  td:first-child { border-left: 3px solid #0C5E8A; }
+tbody tr.row-resolu   td:first-child { border-left: 3px solid #1A7A45; }
+tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
 
-/* ── FAB ── */
-.fab {
-  position: fixed;
-  bottom: max(1.5rem, env(safe-area-inset-bottom,0px));
-  right: max(1.5rem, env(safe-area-inset-right,0px));
-  z-index: 200;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  width: 56px; height: 56px;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 18px rgba(224,90,32,.4);
-  cursor: pointer;
-  transition: transform .15s, background .15s;
-  font-size: 1.6rem; line-height: 1;
-}
-.fab:hover { transform: scale(1.08); background: #c94d16; }
-
-/* ── Empty ── */
-.empty {
+/* Empty */
+.empty-row td {
   text-align: center; padding: 3rem 1rem;
   color: var(--muted); font-size: .9rem;
 }
-.empty svg { width: 48px; height: 48px; fill: var(--border); margin-bottom: .75rem; display: block; margin-inline: auto; }
 
-/* ── Modal overlay ── */
+/* ═══════════════════════════════════
+   MODALS (inchangés)
+═══════════════════════════════════ */
 .overlay {
-  position: fixed; inset: 0; z-index: 300;
+  position: fixed; inset: 0; z-index: 500;
   background: rgba(0,0,0,.45);
   display: flex; align-items: flex-end; justify-content: center;
 }
@@ -239,8 +427,7 @@ body {
   background: var(--surface);
   border-radius: 16px 16px 0 0;
   width: 100%; max-width: 600px;
-  max-height: 92dvh;
-  overflow-y: auto;
+  max-height: 92dvh; overflow-y: auto;
   padding: 1.25rem max(1.25rem, env(safe-area-inset-right,0px)) max(1.25rem, env(safe-area-inset-bottom,0px)) max(1.25rem, env(safe-area-inset-left,0px));
   box-shadow: 0 -4px 32px rgba(0,0,0,.2);
 }
@@ -266,16 +453,11 @@ body {
   margin-bottom: .3rem;
 }
 .form-row input, .form-row textarea, .form-row select {
-  width: 100%;
-  padding: .6rem .85rem;
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
-  font-size: .9rem;
-  outline: none;
+  width: 100%; padding: .6rem .85rem;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text);
+  font-size: .9rem; outline: none; font-family: inherit;
   transition: border-color .15s;
-  font-family: inherit;
 }
 .form-row textarea { resize: vertical; min-height: 80px; }
 .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: var(--primary); }
@@ -318,9 +500,20 @@ body {
 .form-msg.error   { background: #fde8e6; color: var(--error); display: block; }
 .form-msg.success { background: #e6f4ec; color: var(--success); display: block; }
 
-/* ── Detail overlay ── */
+/* Intervenant field */
+.intervenant-btns { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .3rem; }
+.intervenant-btn {
+  padding: .3rem .65rem; border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--bg); color: var(--muted);
+  font-size: .78rem; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+}
+.intervenant-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* ── Detail modal ── */
 .detail-overlay {
-  position: fixed; inset: 0; z-index: 300;
+  position: fixed; inset: 0; z-index: 500;
   background: rgba(0,0,0,.45);
   display: flex; align-items: flex-end; justify-content: center;
 }
@@ -329,8 +522,7 @@ body {
   background: var(--surface);
   border-radius: 16px 16px 0 0;
   width: 100%; max-width: 600px;
-  max-height: 92dvh;
-  overflow-y: auto;
+  max-height: 92dvh; overflow-y: auto;
   padding: 1.25rem max(1.25rem, env(safe-area-inset-right,0px)) max(1.25rem, env(safe-area-inset-bottom,0px)) max(1.25rem, env(safe-area-inset-left,0px));
   box-shadow: 0 -4px 32px rgba(0,0,0,.2);
 }
@@ -338,9 +530,7 @@ body {
   font-size: .8rem; font-weight: 700; color: var(--primary);
   font-family: monospace; letter-spacing: .04em; margin-bottom: .25rem;
 }
-.detail-addr {
-  font-size: 1.05rem; font-weight: 700; margin-bottom: .75rem;
-}
+.detail-addr { font-size: 1.05rem; font-weight: 700; margin-bottom: .75rem; }
 .detail-section { margin-bottom: 1rem; }
 .detail-section h3 {
   font-size: .72rem; font-weight: 700; color: var(--muted);
@@ -350,13 +540,11 @@ body {
   font-size: .88rem; color: var(--text); line-height: 1.5;
   background: var(--bg); border-radius: 8px; padding: .6rem .8rem;
 }
-.detail-meta {
-  display: grid; grid-template-columns: 1fr 1fr; gap: .4rem;
-}
+.detail-meta { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; }
 .detail-meta-item { font-size: .82rem; }
 .detail-meta-item .label { color: var(--muted); font-size: .72rem; display: block; margin-bottom: .1rem; }
+.badges { display: flex; gap: .3rem; flex-wrap: wrap; }
 
-/* Statut buttons */
 .statut-btns { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .35rem; }
 .statut-btn {
   padding: .35rem .7rem; border-radius: 20px;
@@ -376,22 +564,17 @@ body {
   align-items: flex-start;
 }
 .histoline:last-child { border: none; }
-.histoline-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--primary); margin-top: .35rem; flex-shrink: 0;
-}
+.histoline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); margin-top: .35rem; flex-shrink: 0; }
 .histoline-content { flex: 1; min-width: 0; }
 .histoline-statut { font-weight: 700; }
 .histoline-meta { color: var(--muted); font-size: .74rem; }
 
 .loader-wrap { text-align: center; padding: 2rem; color: var(--muted); font-size: .88rem; }
 
-/* ── Action buttons ── */
 .btn-action {
   flex: 1; min-width: 130px;
   padding: .55rem .8rem;
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
+  border: 1.5px solid var(--border); border-radius: 8px;
   background: var(--bg); color: var(--text);
   font-size: .83rem; font-weight: 600;
   cursor: pointer; transition: all .15s;
@@ -400,85 +583,205 @@ body {
 .btn-action:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
 .btn-action:disabled { opacity: .5; cursor: default; }
 .btn-action svg { width: 15px; height: 15px; }
-
-/* Intervenant field */
-.intervenant-btns { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .3rem; }
-.intervenant-btn {
-  padding: .3rem .65rem; border-radius: 20px;
-  border: 1.5px solid var(--border);
-  background: var(--bg); color: var(--muted);
-  font-size: .78rem; font-weight: 600;
-  cursor: pointer; transition: all .15s;
-}
-.intervenant-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 </style>
 </head>
 <body>
 
-<!-- ── Header ── -->
-<header class="header">
-  <div class="header-logo">
-    <div class="header-icon">
-      <svg viewBox="0 0 24 24"><path d="M12 2C12 2 4 10.5 4 15a8 8 0 0016 0C20 10.5 12 2 12 2z"/></svg>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div class="app">
+
+  <!-- ═══════ SIDEBAR ═══════ -->
+  <nav class="sidebar" id="sidebar">
+
+    <div class="sidebar-brand">
+      <div class="sidebar-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C12 2 4 10.5 4 15a8 8 0 0016 0C20 10.5 12 2 12 2z"/></svg>
+      </div>
+      <div>
+        <div class="sidebar-app-name">Fuit'Eau</div>
+        <div class="sidebar-app-sub">CAPV · AEP</div>
+      </div>
     </div>
-    <div>
-      <div class="header-title">Fuit'Eau</div>
-      <div class="header-sub">Fiches fuite AEP</div>
+
+    <div class="sidebar-nav">
+      <div class="sidebar-section-label">Navigation</div>
+
+      <button class="nav-item active" id="navFiches">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        Toutes les fiches
+      </button>
+
+      <a class="nav-item" href="./carte.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+          <line x1="8" y1="2" x2="8" y2="18"/>
+          <line x1="16" y1="6" x2="16" y2="22"/>
+        </svg>
+        Carte des fuites
+      </a>
+
+      <button class="nav-item create-btn" id="btnCreateSide">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Nouvelle fiche
+      </button>
+
+      <div class="sidebar-section-label" style="margin-top:.5rem">Filtres rapides</div>
+
+      <button class="filter-item active" data-filter-side="statut" data-val="">
+        <span class="fi-dot" style="background:#6B7280"></span>
+        <span class="fi-label">Toutes</span>
+        <span class="fi-count" id="fcAll">0</span>
+      </button>
+      <button class="filter-item" data-filter-side="statut" data-val="nouveau">
+        <span class="fi-dot" style="background:#1D4ED8"></span>
+        <span class="fi-label">Nouveau</span>
+        <span class="fi-count" id="fcNou">0</span>
+      </button>
+      <button class="filter-item" data-filter-side="statut" data-val="en_cours">
+        <span class="fi-dot" style="background:#D97706"></span>
+        <span class="fi-label">En cours</span>
+        <span class="fi-count" id="fcEnc">0</span>
+      </button>
+      <button class="filter-item" data-filter-side="statut" data-val="resolu">
+        <span class="fi-dot" style="background:#065F46"></span>
+        <span class="fi-label">Résolu</span>
+        <span class="fi-count" id="fcRes">0</span>
+      </button>
+
+      <div class="sidebar-section-label" style="margin-top:.3rem">Urgence</div>
+
+      <button class="filter-item active" data-filter-side="urgence" data-val="">
+        <span class="fi-dot" style="background:#9CA3AF"></span>
+        <span class="fi-label">Toutes</span>
+      </button>
+      <button class="filter-item" data-filter-side="urgence" data-val="critique">
+        <span class="fi-dot" style="background:#DC2626"></span>
+        <span class="fi-label">Critique</span>
+        <span class="fi-count" id="fcCri">0</span>
+      </button>
+      <button class="filter-item" data-filter-side="urgence" data-val="urgente">
+        <span class="fi-dot" style="background:#D97706"></span>
+        <span class="fi-label">Urgente</span>
+        <span class="fi-count" id="fcUrg">0</span>
+      </button>
     </div>
-  </div>
-  <div class="header-actions">
-    <button class="btn-icon" onclick="window.location.href='./carte.html'" title="Carte des fuites">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-        <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
-        <line x1="8" y1="2" x2="8" y2="18"/>
-        <line x1="16" y1="6" x2="16" y2="22"/>
-      </svg>
-    </button>
-    <button class="btn-icon" id="btnRefresh" title="Actualiser">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-        <path d="M4 4v5h5M20 20v-5h-5"/>
-        <path d="M4 9a8 8 0 0114-3.46M20 15a8 8 0 01-14 3.46"/>
-      </svg>
-    </button>
-    <button class="btn-icon" id="btnLogout" title="Déconnexion">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
-      </svg>
-    </button>
-  </div>
-</header>
 
-<!-- ── Filters ── -->
-<div class="filters">
-  <div class="search-wrap">
-    <svg viewBox="0 0 24 24"><path d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
-    <input class="search-input" id="searchInput" type="search" placeholder="Adresse, commune, référence…">
-  </div>
-  <div style="display:flex;gap:.4rem;flex-wrap:wrap">
-    <button class="filter-chip active" data-filter="statut" data-val="">Tous</button>
-    <button class="filter-chip" data-filter="statut" data-val="nouveau">Nouveau</button>
-    <button class="filter-chip" data-filter="statut" data-val="en_cours">En cours</button>
-    <button class="filter-chip" data-filter="statut" data-val="resolu">Résolu</button>
-    <button class="filter-chip" data-filter="statut" data-val="ferme">Fermé</button>
-  </div>
-  <div style="display:flex;gap:.4rem;flex-wrap:wrap">
-    <button class="filter-chip active" data-filter="urgence" data-val="">Toute urgence</button>
-    <button class="filter-chip" data-filter="urgence" data-val="critique">🔴 Critique</button>
-    <button class="filter-chip" data-filter="urgence" data-val="urgente">🟡 Urgente</button>
-    <button class="filter-chip" data-filter="urgence" data-val="normale">🔵 Normale</button>
-  </div>
-</div>
+    <div class="sidebar-footer">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <div class="user-info">
+        <div class="user-email" id="userEmail">—</div>
+        <div class="user-role" id="userRole">—</div>
+      </div>
+      <button class="logout-btn" id="btnLogout" title="Déconnexion">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+        </svg>
+      </button>
+    </div>
 
-<!-- Stats -->
-<div class="stats-bar" id="statsBar"></div>
+  </nav>
 
-<!-- List -->
-<div class="list-wrap" id="listWrap">
-  <div class="loader-wrap">Chargement…</div>
-</div>
+  <!-- ═══════ MAIN ═══════ -->
+  <div class="main">
 
-<!-- FAB -->
-<button class="fab" id="btnCreate" title="Nouvelle fiche">＋</button>
+    <!-- Topbar -->
+    <div class="topbar">
+      <button class="hamburger" id="btnHamburger">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div class="topbar-title">
+        Fiches fuite
+        <span class="topbar-sub">/ Réseau AEP — Pays Voironnais</span>
+      </div>
+      <button class="btn-new" id="btnCreate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Nouvelle fiche
+      </button>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats-row">
+      <div class="stat-card" data-stat="" id="sc-all">
+        <div class="stat-val" id="sv-all">0</div>
+        <div class="stat-lbl">Total</div>
+      </div>
+      <div class="stat-card" data-stat="nouveau" id="sc-nouveau">
+        <div class="stat-val" id="sv-nouveau">0</div>
+        <div class="stat-lbl">Nouveau</div>
+      </div>
+      <div class="stat-card" data-stat="en_cours" id="sc-en_cours">
+        <div class="stat-val" id="sv-en_cours">0</div>
+        <div class="stat-lbl">En cours</div>
+      </div>
+      <div class="stat-card" data-stat="resolu" id="sc-resolu">
+        <div class="stat-val" id="sv-resolu">0</div>
+        <div class="stat-lbl">Résolu</div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
+        <input class="search-input" id="searchInput" type="search" placeholder="Adresse, commune, référence…">
+      </div>
+      <select id="selUrgence">
+        <option value="">Toute urgence</option>
+        <option value="critique">🔴 Critique</option>
+        <option value="urgente">🟡 Urgente</option>
+        <option value="normale">🔵 Normale</option>
+      </select>
+      <select id="selStatut">
+        <option value="">Tout statut</option>
+        <option value="nouveau">Nouveau</option>
+        <option value="en_cours">En cours</option>
+        <option value="resolu">Résolu</option>
+        <option value="ferme">Fermé</option>
+      </select>
+      <button class="btn-refresh" id="btnRefresh">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M4 4v5h5M20 20v-5h-5"/>
+          <path d="M4 9a8 8 0 0114-3.46M20 15a8 8 0 01-14 3.46"/>
+        </svg>
+        Actualiser
+      </button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-scroll">
+      <table id="fichesTable">
+        <thead>
+          <tr>
+            <th>N° Fiche</th>
+            <th>Date</th>
+            <th>Commune</th>
+            <th>Adresse</th>
+            <th>Type</th>
+            <th>Urgence</th>
+            <th>Statut</th>
+            <th>Intervenant</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr class="empty-row"><td colspan="8">Chargement…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div><!-- /main -->
+
+</div><!-- /app -->
 
 <!-- ── Modal création ── -->
 <div class="overlay" id="createOverlay" hidden>
@@ -524,15 +827,32 @@ body {
         </div>
       </div>
 
-      <div class="form-row">
-        <label>Description *</label>
-        <textarea id="fDescription" placeholder="Type de fuite, débit estimé, localisation précise…" required></textarea>
+      <div class="form-cols">
+        <div class="form-row">
+          <label>Type de fuite</label>
+          <select id="fTypeFuite">
+            <option value="">— Non précisé —</option>
+            <option value="branchement">Branchement</option>
+            <option value="conduite">Conduite</option>
+            <option value="raccord">Raccord</option>
+            <option value="vanne">Vanne</option>
+            <option value="autre">Autre</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Intervenant</label>
+          <input type="text" id="fIntervenant" placeholder="Nom de l'agent">
+        </div>
       </div>
 
       <div class="form-row">
-        <label>Intervenant</label>
+        <label>Intervenants</label>
         <div class="intervenant-btns" id="intervenantBtns"></div>
-        <input type="text" id="fIntervenant" placeholder="Nom de l'agent" style="margin-top:.4rem">
+      </div>
+
+      <div class="form-row">
+        <label>Description *</label>
+        <textarea id="fDescription" placeholder="Type de fuite, débit estimé, localisation précise…" required></textarea>
       </div>
 
       <div class="form-row">
@@ -577,6 +897,7 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const INTERVENANTS = ['Jérémy','Jean-Phi','Agent 3','Agent 4'];
+const TYPE_LABELS = { branchement:'Branchement', conduite:'Conduite', raccord:'Raccord', vanne:'Vanne', autre:'Autre' };
 
 // ── Auth guard ──────────────────────────────────────────────────
 let myRole = '', myEmail = '';
@@ -584,13 +905,17 @@ let myRole = '', myEmail = '';
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { window.location.replace('./index.html'); return; }
 
-  // Profil
   const { data: p } = await sb.from('fuites_profils').select('role,actif').eq('id', session.user.id).single();
-  if (!p || !p.actif) { await sb.signOut(); window.location.replace('./index.html'); return; }
+  if (!p || !p.actif) { await sb.auth.signOut(); window.location.replace('./index.html'); return; }
 
   myRole  = p.role;
   myEmail = session.user.email;
   try { sessionStorage.setItem('fe_role', myRole); } catch {}
+
+  // Affichage user
+  document.getElementById('userEmail').textContent = myEmail;
+  document.getElementById('userRole').textContent  = myRole;
+  document.getElementById('userAvatar').textContent = (myEmail[0] || '?').toUpperCase();
 
   initIntervenants();
   loadFiches();
@@ -603,27 +928,66 @@ document.getElementById('btnLogout').addEventListener('click', async () => {
   window.location.replace('./index.html');
 });
 
-// ── Filters & search ───────────────────────────────────────────
+// ── Hamburger / sidebar mobile ───────────────────────────────────
+const sidebar  = document.getElementById('sidebar');
+const backdrop = document.getElementById('sidebarBackdrop');
+function openSidebar()  { sidebar.classList.add('open');  backdrop.classList.add('open'); }
+function closeSidebar() { sidebar.classList.remove('open'); backdrop.classList.remove('open'); }
+document.getElementById('btnHamburger').addEventListener('click', openSidebar);
+backdrop.addEventListener('click', closeSidebar);
+
+// ── Filters ─────────────────────────────────────────────────────
 let filterStatut  = '';
 let filterUrgence = '';
 let searchTerm    = '';
 
-document.querySelectorAll('[data-filter="statut"]').forEach(btn => {
+// Sidebar filters
+document.querySelectorAll('[data-filter-side="statut"]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-filter="statut"]').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('[data-filter-side="statut"]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     filterStatut = btn.dataset.val;
+    document.getElementById('selStatut').value = filterStatut;
     renderFiches();
+    closeSidebar();
   });
 });
-document.querySelectorAll('[data-filter="urgence"]').forEach(btn => {
+document.querySelectorAll('[data-filter-side="urgence"]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-filter="urgence"]').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('[data-filter-side="urgence"]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     filterUrgence = btn.dataset.val;
+    document.getElementById('selUrgence').value = filterUrgence;
+    renderFiches();
+    closeSidebar();
+  });
+});
+
+// Stat cards
+document.querySelectorAll('.stat-card').forEach(card => {
+  card.addEventListener('click', () => {
+    filterStatut = card.dataset.stat;
+    document.getElementById('selStatut').value = filterStatut;
+    // Sync sidebar
+    document.querySelectorAll('[data-filter-side="statut"]').forEach(b => {
+      b.classList.toggle('active', b.dataset.val === filterStatut);
+    });
     renderFiches();
   });
 });
+
+// Toolbar selects
+document.getElementById('selUrgence').addEventListener('change', e => {
+  filterUrgence = e.target.value;
+  document.querySelectorAll('[data-filter-side="urgence"]').forEach(b => b.classList.toggle('active', b.dataset.val === filterUrgence));
+  renderFiches();
+});
+document.getElementById('selStatut').addEventListener('change', e => {
+  filterStatut = e.target.value;
+  document.querySelectorAll('[data-filter-side="statut"]').forEach(b => b.classList.toggle('active', b.dataset.val === filterStatut));
+  renderFiches();
+});
+
 let searchTimeout;
 document.getElementById('searchInput').addEventListener('input', e => {
   clearTimeout(searchTimeout);
@@ -654,56 +1018,63 @@ function renderFiches() {
     (f.description||'').toLowerCase().includes(searchTerm)
   );
 
-  renderStats();
+  updateStats();
 
-  const wrap = document.getElementById('listWrap');
+  const body = document.getElementById('tableBody');
   if (!fiches.length) {
-    wrap.innerHTML = `<div class="empty">
-      <svg viewBox="0 0 24 24"><path d="M12 2C12 2 4 10.5 4 15a8 8 0 0016 0C20 10.5 12 2 12 2z" opacity=".3"/></svg>
-      Aucune fiche${filterStatut || filterUrgence || searchTerm ? ' pour ces filtres' : ''}
-    </div>`;
+    body.innerHTML = `<tr class="empty-row"><td colspan="8">Aucune fiche${filterStatut || filterUrgence || searchTerm ? ' pour ces filtres' : ''}</td></tr>`;
     return;
   }
 
-  wrap.innerHTML = fiches.map(f => {
-    const cls = f.statut === 'resolu' ? 'resolu' : f.statut === 'ferme' ? 'ferme' : f.urgence;
-    const urgBadge = { normale:'badge-nor', urgente:'badge-urg', critique:'badge-cri' }[f.urgence] || '';
-    const statBadge = { nouveau:'badge-nou', en_cours:'badge-enc', resolu:'badge-res', ferme:'badge-fer' }[f.statut] || '';
-    const posBadge = f.position === 'avant_compteur' ? 'badge-av' : 'badge-ap';
-    const posLabel = f.position === 'avant_compteur' ? 'Avant cpt' : 'Après cpt';
-    const alerte = f.alerte_6h_envoyee ? `<span class="badge badge-ale">⚠ Alerte 6h</span>` : '';
-    const date = new Date(f.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+  const urgBadge  = { normale:'badge-nor', urgente:'badge-urg', critique:'badge-cri' };
+  const statBadge = { nouveau:'badge-nou', en_cours:'badge-enc', resolu:'badge-res', ferme:'badge-fer' };
+  const rowCls    = { nouveau:'row-normale', en_cours:'row-urgente', resolu:'row-resolu', ferme:'row-ferme',
+                      critique_urgence:'row-critique', urgente_urgence:'row-urgente', normale_urgence:'row-normale' };
 
-    return `<div class="fiche-card ${cls}" data-id="${f.id}" onclick="openDetail('${f.id}')">
-      <div class="fiche-head">
-        <span class="fiche-ref">${f.reference || '—'}</span>
-        <span class="fiche-addr">${f.adresse || ''}${f.commune ? ', '+f.commune : ''}</span>
-        <div class="badges">
-          <span class="badge ${urgBadge}">${f.urgence}</span>
-          <span class="badge ${statBadge}">${f.statut.replace('_',' ')}</span>
-          <span class="badge ${posBadge}">${posLabel}</span>
-          ${alerte}
-        </div>
-      </div>
-      ${f.description ? `<div class="fiche-desc">${escHtml(f.description)}</div>` : ''}
-      <div class="fiche-foot">
-        <span>${date}</span>
-        <span class="fiche-intervenant">${f.intervenant || '—'}</span>
-      </div>
-    </div>`;
+  body.innerHTML = fiches.map(f => {
+    const rowClass = f.statut === 'resolu' ? 'row-resolu'
+                   : f.statut === 'ferme'  ? 'row-ferme'
+                   : f.urgence === 'critique' ? 'row-critique'
+                   : f.urgence === 'urgente'  ? 'row-urgente'
+                   : 'row-normale';
+
+    const date = new Date(f.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+    const typeLabel = f.type_fuite ? (TYPE_LABELS[f.type_fuite] || f.type_fuite) : '—';
+
+    return `<tr class="${rowClass}" onclick="openDetail('${f.id}')">
+      <td class="td-ref">${f.reference || '—'}</td>
+      <td class="td-date">${date}</td>
+      <td class="td-commune">${escHtml(f.commune || '—')}</td>
+      <td class="td-adresse" title="${escHtml(f.adresse||'')}">${escHtml(f.adresse || '—')}</td>
+      <td>${typeLabel}</td>
+      <td><span class="badge ${urgBadge[f.urgence]||''}">${f.urgence}</span></td>
+      <td><span class="badge ${statBadge[f.statut]||''}">${f.statut.replace('_',' ')}</span></td>
+      <td class="td-intervenant">${escHtml(f.intervenant || '—')}</td>
+    </tr>`;
   }).join('');
 }
 
-function renderStats() {
-  const counts = { nouveau:0, en_cours:0, resolu:0, ferme:0 };
-  allFiches.forEach(f => { if (counts[f.statut] !== undefined) counts[f.statut]++; });
-  document.getElementById('statsBar').innerHTML = `
-    <span class="stat-item"><span class="stat-dot" style="background:#1D4ED8"></span>${counts.nouveau} nouveau${counts.nouveau>1?'x':''}</span>
-    <span class="stat-item"><span class="stat-dot" style="background:#D97706"></span>${counts.en_cours} en cours</span>
-    <span class="stat-item"><span class="stat-dot" style="background:#065F46"></span>${counts.resolu} résolu${counts.resolu>1?'s':''}</span>
-    <span class="stat-item"><span class="stat-dot" style="background:#6B7280"></span>${counts.ferme} fermé${counts.ferme>1?'s':''}</span>
-    <span style="margin-left:auto">${allFiches.length} fiche${allFiches.length>1?'s':''} au total</span>
-  `;
+function updateStats() {
+  const counts = { nouveau:0, en_cours:0, resolu:0, ferme:0, critique:0, urgente:0 };
+  allFiches.forEach(f => {
+    if (counts[f.statut] !== undefined) counts[f.statut]++;
+    if (counts[f.urgence] !== undefined) counts[f.urgence]++;
+  });
+
+  document.getElementById('sv-all').textContent     = allFiches.length;
+  document.getElementById('sv-nouveau').textContent = counts.nouveau;
+  document.getElementById('sv-en_cours').textContent= counts.en_cours;
+  document.getElementById('sv-resolu').textContent  = counts.resolu;
+
+  document.getElementById('fcAll').textContent = allFiches.length;
+  document.getElementById('fcNou').textContent = counts.nouveau;
+  document.getElementById('fcEnc').textContent = counts.en_cours;
+  document.getElementById('fcRes').textContent = counts.resolu;
+  document.getElementById('fcCri').textContent = counts.critique;
+  document.getElementById('fcUrg').textContent = counts.urgente;
+
+  // Highlight active stat card
+  document.querySelectorAll('.stat-card').forEach(c => c.classList.toggle('active', c.dataset.stat === filterStatut));
 }
 
 // ── Realtime ────────────────────────────────────────────────────
@@ -731,9 +1102,12 @@ function initIntervenants() {
 }
 
 // ── Création ────────────────────────────────────────────────────
-document.getElementById('btnCreate').addEventListener('click', () => {
+function openCreateModal() {
   document.getElementById('createOverlay').hidden = false;
-});
+  closeSidebar();
+}
+document.getElementById('btnCreate').addEventListener('click', openCreateModal);
+document.getElementById('btnCreateSide').addEventListener('click', openCreateModal);
 document.getElementById('btnCloseCreate').addEventListener('click', () => {
   document.getElementById('createOverlay').hidden = true;
 });
@@ -741,7 +1115,6 @@ document.getElementById('createOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) e.currentTarget.hidden = true;
 });
 
-// Géolocalisation
 document.getElementById('btnGeo').addEventListener('click', () => {
   if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(pos => {
@@ -762,16 +1135,17 @@ document.getElementById('createForm').addEventListener('submit', async e => {
   const lng = parseFloat(document.getElementById('fLng').value) || null;
 
   const payload = {
-    position:      document.getElementById('fPosition').value,
-    urgence:       document.getElementById('fUrgence').value,
-    adresse:       document.getElementById('fAdresse').value.trim(),
-    commune:       document.getElementById('fCommune').value.trim(),
-    description:   document.getElementById('fDescription').value.trim(),
-    intervenant:   document.getElementById('fIntervenant').value.trim() || null,
-    commentaire:   document.getElementById('fCommentaire').value.trim() || null,
-    lat:           lat || null,
-    lon:           lng || null,
-    statut:        'nouveau',
+    position:    document.getElementById('fPosition').value,
+    urgence:     document.getElementById('fUrgence').value,
+    adresse:     document.getElementById('fAdresse').value.trim(),
+    commune:     document.getElementById('fCommune').value.trim(),
+    description: document.getElementById('fDescription').value.trim(),
+    intervenant: document.getElementById('fIntervenant').value.trim() || null,
+    commentaire: document.getElementById('fCommentaire').value.trim() || null,
+    type_fuite:  document.getElementById('fTypeFuite').value || null,
+    lat:         lat || null,
+    lon:         lng || null,
+    statut:      'nouveau',
   };
 
   const { error } = await sb.from('fuites').insert(payload);
@@ -815,12 +1189,13 @@ async function openDetail(id) {
   const posBadge = f.position === 'avant_compteur' ? 'badge-av' : 'badge-ap';
   const posLabel = f.position === 'avant_compteur' ? 'Avant compteur (TRVO)' : 'Après compteur (RU)';
   const date = d => new Date(d).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  const typeStr = f.type_fuite ? (TYPE_LABELS[f.type_fuite] || f.type_fuite) : '—';
 
   const statutOptions = [
-    { val:'nouveau',   label:'Nouveau' },
-    { val:'en_cours',  label:'En cours' },
-    { val:'resolu',    label:'Résolu' },
-    { val:'ferme',     label:'Fermé' },
+    { val:'nouveau',  label:'Nouveau' },
+    { val:'en_cours', label:'En cours' },
+    { val:'resolu',   label:'Résolu' },
+    { val:'ferme',    label:'Fermé' },
   ];
   const statutBtns = canEdit ? `
     <div class="detail-section">
@@ -844,7 +1219,7 @@ async function openDetail(id) {
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
       <div>
         <div class="detail-ref">${f.reference || '—'}</div>
-        <div class="detail-addr">${f.adresse || ''}${f.commune ? ', '+f.commune : ''}</div>
+        <div class="detail-addr">${escHtml(f.adresse || '')}${f.commune ? ', '+escHtml(f.commune) : ''}</div>
       </div>
       <button class="modal-close" onclick="document.getElementById('detailOverlay').hidden=true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="width:22px;height:22px">
@@ -857,6 +1232,7 @@ async function openDetail(id) {
       <span class="badge ${posBadge}">${posLabel}</span>
       <span class="badge ${{ normale:'badge-nor', urgente:'badge-urg', critique:'badge-cri' }[f.urgence]}">${f.urgence}</span>
       <span class="badge ${{ nouveau:'badge-nou', en_cours:'badge-enc', resolu:'badge-res', ferme:'badge-fer' }[f.statut]}" id="currentStatutBadge">${f.statut.replace('_',' ')}</span>
+      ${f.type_fuite ? `<span class="badge" style="background:#F0FDF4;color:#166534">${typeStr}</span>` : ''}
       ${f.alerte_6h_envoyee ? '<span class="badge badge-ale">⚠ Alerte 6h envoyée</span>' : ''}
     </div>
 
@@ -868,7 +1244,8 @@ async function openDetail(id) {
     <div class="detail-section">
       <h3>Informations</h3>
       <div class="detail-meta">
-        <div class="detail-meta-item"><span class="label">Intervenant</span>${f.intervenant || '—'}</div>
+        <div class="detail-meta-item"><span class="label">Intervenant</span>${escHtml(f.intervenant || '—')}</div>
+        <div class="detail-meta-item"><span class="label">Type de fuite</span>${typeStr}</div>
         <div class="detail-meta-item"><span class="label">Créé le</span>${date(f.created_at)}</div>
         <div class="detail-meta-item"><span class="label">Dernière modif.</span>${date(f.updated_at)}</div>
         <div class="detail-meta-item"><span class="label">Coordonnées</span>${f.lat ? '✓ GPS enregistré' : '—'}</div>
@@ -905,14 +1282,10 @@ async function openDetail(id) {
 }
 
 async function changeStatut(id, nouveauStatut) {
-  // Désactiver les boutons pendant la mise à jour
   document.querySelectorAll('.statut-btn').forEach(b => b.disabled = true);
-
   const { error } = await sb.from('fuites').update({ statut: nouveauStatut }).eq('id', id);
-
   if (!error) {
     loadFiches();
-    // Re-ouvrir le détail pour rafraîchir
     await openDetail(id);
   } else {
     document.querySelectorAll('.statut-btn').forEach(b => b.disabled = false);
@@ -934,12 +1307,11 @@ function generatePDF() {
 
   const W = 210, M = 15, cw = W - M * 2;
   const COL2 = W / 2 + 5;
-  const PRIM = [12, 94, 138];
+  const PRIM  = [12, 94, 138];
   const MUTED = [107, 127, 147];
   const DARK  = [26, 43, 60];
   const BORD  = [209, 220, 232];
 
-  // ── Bandeau header ──
   doc.setFillColor(...PRIM);
   doc.rect(0, 0, W, 24, 'F');
   doc.setTextColor(255, 255, 255);
@@ -949,12 +1321,10 @@ function generatePDF() {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.text("CAPV · Service Cycle de l'Eau · Isère", M, 16.5);
-  doc.setFontSize(8.5);
   doc.text(new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }), W - M, 10, { align: 'right' });
 
   let y = 34;
 
-  // ── Référence + statut ──
   doc.setTextColor(...PRIM);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
@@ -970,25 +1340,24 @@ function generatePDF() {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.setTextColor(...DARK);
-  const addrText = `${f.adresse || ''}${f.commune ? ', ' + f.commune : ''}`;
-  doc.text(addrText, M, y);
+  doc.text(`${f.adresse || ''}${f.commune ? ', ' + f.commune : ''}`, M, y);
 
   y += 9;
   doc.setDrawColor(...BORD);
   doc.line(M, y, W - M, y);
   y += 8;
 
-  // ── Grille métadonnées 2 colonnes ──
   const urgLabel = { normale:'Normale', urgente:'Urgente', critique:'Critique' }[f.urgence] || f.urgence;
   const posLabel = f.position === 'avant_compteur' ? 'Avant compteur (TRVO)' : 'Après compteur (RU)';
   const dtFmt = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }) : '—';
+  const typeStr = f.type_fuite ? (TYPE_LABELS[f.type_fuite] || f.type_fuite) : '—';
 
   const meta = [
     ['Position', posLabel],
     ['Urgence', urgLabel],
+    ['Type de fuite', typeStr],
     ['Intervenant', f.intervenant || '—'],
     ['Détectée le', dtFmt(f.date_detection || f.created_at)],
-    ['Réparée le', dtFmt(f.date_reparation)],
     ['GPS', f.lat ? `${parseFloat(f.lat).toFixed(5)}, ${parseFloat(f.lon).toFixed(5)}` : '—'],
   ];
 
@@ -1010,7 +1379,6 @@ function generatePDF() {
   doc.line(M, y, W - M, y);
   y += 8;
 
-  // ── Description ──
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(...MUTED);
@@ -1023,7 +1391,6 @@ function generatePDF() {
   doc.text(descLines, M, y);
   y += descLines.length * 5.5 + 4;
 
-  // ── Commentaire ──
   if (f.commentaire) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
@@ -1038,7 +1405,6 @@ function generatePDF() {
     y += commLines.length * 5 + 4;
   }
 
-  // ── Historique ──
   if (hist.length > 0) {
     doc.setDrawColor(...BORD);
     doc.line(M, y, W - M, y);
@@ -1048,7 +1414,6 @@ function generatePDF() {
     doc.setTextColor(...MUTED);
     doc.text('HISTORIQUE DES MODIFICATIONS', M, y);
     y += 6;
-
     hist.forEach(h => {
       if (y > 268) { doc.addPage(); y = 20; }
       doc.setFillColor(240, 244, 248);
@@ -1056,9 +1421,7 @@ function generatePDF() {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       doc.setTextColor(...DARK);
-      const sAvant = h.statut_avant.replace('_', ' ');
-      const sApres = h.statut_apres.replace('_', ' ');
-      doc.text(`${sAvant}  →  ${sApres}`, M + 3, y + 2);
+      doc.text(`${h.statut_avant.replace('_',' ')}  →  ${h.statut_apres.replace('_',' ')}`, M + 3, y + 2);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(...MUTED);
@@ -1069,7 +1432,6 @@ function generatePDF() {
     });
   }
 
-  // ── Pied de page ──
   const pageCount = doc.getNumberOfPages();
   for (let p = 1; p <= pageCount; p++) {
     doc.setPage(p);
@@ -1085,13 +1447,12 @@ function generatePDF() {
   doc.save(`fiche-fuite-${(f.reference || 'sans-ref').replace(/[^A-Z0-9-]/gi, '_')}.pdf`);
 }
 
-// ── Email notification (edge function) ──────────────────────────
+// ── Email notification ───────────────────────────────────────────
 async function envoyerEmail(btn) {
   if (!currentFiche) return;
   const orig = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = `<svg class="spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:15px;height:15px;animation:spin .7s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Envoi…`;
-
   try {
     const { error } = await sb.functions.invoke('notify-fuite', {
       body: { type: 'manuelle', fuite: currentFiche }
@@ -1106,9 +1467,10 @@ async function envoyerEmail(btn) {
   }
 }
 
-// ── Utils ───────────────────────────────────────────────────────
+// ── Utils ────────────────────────────────────────────────────────
 function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 </body>
