@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fuit'Eau — Connexion</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  /* ── Tokens ── */
+  :root {
+    --bg:       #F0F4F8;
+    --surface:  #FFFFFF;
+    --border:   #D1DCE8;
+    --primary:  #0C5E8A;
+    --primary-h:#0A4D72;
+    --accent:   #E05A20;
+    --text:     #1A2B3C;
+    --muted:    #6B7F93;
+    --error:    #C0392B;
+    --success:  #1A7A45;
+    --shadow:   0 2px 12px rgba(12,94,138,.12);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:      #0D1B2A;
+      --surface: #162535;
+      --border:  #2A3F54;
+      --primary: #2A8FBF;
+      --primary-h:#3AA0D0;
+      --text:    #E2EAF0;
+      --muted:   #8BA4BA;
+      --shadow:  0 2px 12px rgba(0,0,0,.4);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:      #0D1B2A;
+    --surface: #162535;
+    --border:  #2A3F54;
+    --primary: #2A8FBF;
+    --primary-h:#3AA0D0;
+    --text:    #E2EAF0;
+    --muted:   #8BA4BA;
+    --shadow:  0 2px 12px rgba(0,0,0,.4);
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem max(1rem, env(safe-area-inset-left, 0px));
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  /* Logo */
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: 2rem;
+    justify-content: center;
+  }
+  .logo-icon {
+    width: 44px; height: 44px;
+    background: var(--primary);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 26px; height: 26px; fill: #fff; }
+  .logo-text { line-height: 1.1; }
+  .logo-name {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--primary);
+    letter-spacing: -.02em;
+  }
+  .logo-sub {
+    font-size: .72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  h1 {
+    font-size: 1rem;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 1.75rem;
+    color: var(--text);
+  }
+
+  label {
+    display: block;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: .35rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  input[type="email"],
+  input[type="password"] {
+    width: 100%;
+    padding: .65rem .9rem;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: .95rem;
+    outline: none;
+    transition: border-color .15s;
+    margin-bottom: 1.1rem;
+  }
+  input:focus { border-color: var(--primary); }
+
+  button[type="submit"] {
+    width: 100%;
+    padding: .75rem;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: .95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, opacity .15s;
+    margin-top: .5rem;
+  }
+  button[type="submit"]:hover { background: var(--primary-h); }
+  button[type="submit"]:disabled { opacity: .55; cursor: default; }
+
+  .msg {
+    margin-top: 1rem;
+    padding: .6rem .9rem;
+    border-radius: 7px;
+    font-size: .88rem;
+    display: none;
+  }
+  .msg.error   { background: #fde8e6; color: var(--error); display: block; }
+  .msg.success { background: #e6f4ec; color: var(--success); display: block; }
+
+  .footer {
+    margin-top: 2rem;
+    text-align: center;
+    font-size: .75rem;
+    color: var(--muted);
+  }
+  .footer strong { color: var(--primary); }
+
+  /* Spinner */
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    vertical-align: middle;
+    margin-right: .4rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">
+      <!-- Icône goutte d'eau -->
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C12 2 4 10.5 4 15a8 8 0 0016 0C20 10.5 12 2 12 2z"/>
+        <path d="M12 18a3 3 0 01-3-3" stroke="rgba(255,255,255,.5)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <div class="logo-name">Fuit'Eau</div>
+      <div class="logo-sub">CAPV · Cycle de l'Eau</div>
+    </div>
+  </div>
+
+  <h1>Connexion à votre espace</h1>
+
+  <form id="loginForm" autocomplete="on">
+    <label for="email">Adresse e-mail</label>
+    <input type="email" id="email" name="email"
+           placeholder="prenom.nom@paysvoironnais.fr"
+           autocomplete="username" required>
+
+    <label for="password">Mot de passe</label>
+    <input type="password" id="password" name="password"
+           placeholder="••••••••"
+           autocomplete="current-password" required>
+
+    <button type="submit" id="btnLogin">Se connecter</button>
+    <div class="msg" id="msg"></div>
+  </form>
+</div>
+
+<div class="footer">
+  <strong>AquaPilot</strong> — Fuit'Eau v1.0<br>
+  Service Cycle de l'Eau · Communauté d'Agglomération du Pays Voironnais
+</div>
+
+<script>
+// ── Config Supabase ──────────────────────────────────────────
+const SUPABASE_URL  = 'https://nygrwybqyrkqrkmszisv.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55Z3J3eWJxeXJrcXJrbXN6aXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxNTEyMDIsImV4cCI6MjEwNzcyNzIwMn0.f-mZi4Pyq7Rbh9k1OUvr3ufp77i8xzybub4QO2VNWUM';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── Service Worker ───────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ── Redirection si déjà connecté ────────────────────────────
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) window.location.replace('./fiches.html');
+})();
+
+// ── Formulaire connexion ─────────────────────────────────────
+const form    = document.getElementById('loginForm');
+const btn     = document.getElementById('btnLogin');
+const msgEl   = document.getElementById('msg');
+
+function showMsg(text, type) {
+  msgEl.textContent = text;
+  msgEl.className   = 'msg ' + type;
+}
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  btn.disabled   = true;
+  btn.innerHTML  = '<span class="spinner"></span>Connexion…';
+  msgEl.className = 'msg';
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    btn.disabled  = false;
+    btn.textContent = 'Se connecter';
+    const msg = error.message.includes('Invalid login')
+      ? 'Email ou mot de passe incorrect.'
+      : error.message;
+    showMsg(msg, 'error');
+    return;
+  }
+
+  // Vérifier le profil (accès Fuit'Eau)
+  const { data: profil, error: pErr } = await sb
+    .from('fuites_profils')
+    .select('role, actif')
+    .eq('id', data.user.id)
+    .single();
+
+  if (pErr || !profil) {
+    await sb.auth.signOut();
+    btn.disabled   = false;
+    btn.textContent = 'Se connecter';
+    showMsg('Compte non autorisé sur Fuit\'Eau. Contactez l\'administrateur.', 'error');
+    return;
+  }
+
+  if (!profil.actif) {
+    await sb.auth.signOut();
+    btn.disabled   = false;
+    btn.textContent = 'Se connecter';
+    showMsg('Compte désactivé. Contactez l\'administrateur.', 'error');
+    return;
+  }
+
+  // Stocker le rôle en session pour éviter des requêtes répétées
+  try {
+    sessionStorage.setItem('fe_role', profil.role);
+    sessionStorage.setItem('fe_uid',  data.user.id);
+    sessionStorage.setItem('fe_email',data.user.email);
+  } catch {}
+
+  window.location.replace('./fiches.html');
+});
+</script>
+</body>
+</html>
