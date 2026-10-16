@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Fuit'Eau — Fiches</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 /* ── Tokens ── */
 :root {
@@ -385,6 +386,21 @@ body {
 
 .loader-wrap { text-align: center; padding: 2rem; color: var(--muted); font-size: .88rem; }
 
+/* ── Action buttons ── */
+.btn-action {
+  flex: 1; min-width: 130px;
+  padding: .55rem .8rem;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg); color: var(--text);
+  font-size: .83rem; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; justify-content: center; gap: .35rem;
+}
+.btn-action:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.btn-action:disabled { opacity: .5; cursor: default; }
+.btn-action svg { width: 15px; height: 15px; }
+
 /* Intervenant field */
 .intervenant-btns { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .3rem; }
 .intervenant-btn {
@@ -411,6 +427,13 @@ body {
     </div>
   </div>
   <div class="header-actions">
+    <button class="btn-icon" onclick="window.location.href='./carte.html'" title="Carte des fuites">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+        <line x1="8" y1="2" x2="8" y2="18"/>
+        <line x1="16" y1="6" x2="16" y2="22"/>
+      </svg>
+    </button>
     <button class="btn-icon" id="btnRefresh" title="Actualiser">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
         <path d="M4 4v5h5M20 20v-5h-5"/>
@@ -771,6 +794,8 @@ document.getElementById('createForm').addEventListener('submit', async e => {
 
 // ── Détail ──────────────────────────────────────────────────────
 let currentFicheId = null;
+let currentFiche   = null;
+let currentHist    = [];
 
 async function openDetail(id) {
   currentFicheId = id;
@@ -783,6 +808,8 @@ async function openDetail(id) {
   ]);
 
   if (!f) { document.getElementById('detailContent').innerHTML = '<div class="loader-wrap">Fiche introuvable.</div>'; return; }
+  currentFiche = f;
+  currentHist  = hist || [];
 
   const canEdit = ['superadmin','agent_rdf'].includes(myRole);
   const posBadge = f.position === 'avant_compteur' ? 'badge-av' : 'badge-ap';
@@ -856,6 +883,24 @@ async function openDetail(id) {
       <h3>Historique</h3>
       ${histoHtml}
     </div>
+
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
+      <button class="btn-action" id="btnPdf" onclick="generatePDF()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        Fiche PDF
+      </button>
+      <button class="btn-action" id="btnEmail" onclick="envoyerEmail(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        Notifier l'équipe
+      </button>
+    </div>
   `;
 }
 
@@ -878,6 +923,188 @@ async function changeStatut(id, nouveauStatut) {
 document.getElementById('detailOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) e.currentTarget.hidden = true;
 });
+
+// ── PDF ─────────────────────────────────────────────────────────
+function generatePDF() {
+  if (!currentFiche || !window.jspdf) return;
+  const { jsPDF } = window.jspdf;
+  const f = currentFiche;
+  const hist = currentHist;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const W = 210, M = 15, cw = W - M * 2;
+  const COL2 = W / 2 + 5;
+  const PRIM = [12, 94, 138];
+  const MUTED = [107, 127, 147];
+  const DARK  = [26, 43, 60];
+  const BORD  = [209, 220, 232];
+
+  // ── Bandeau header ──
+  doc.setFillColor(...PRIM);
+  doc.rect(0, 0, W, 24, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text("Fuit'Eau — Fiche de suivi fuite AEP", M, 10);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text("CAPV · Service Cycle de l'Eau · Isère", M, 16.5);
+  doc.setFontSize(8.5);
+  doc.text(new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }), W - M, 10, { align: 'right' });
+
+  let y = 34;
+
+  // ── Référence + statut ──
+  doc.setTextColor(...PRIM);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.text(f.reference || '—', M, y);
+
+  const statLabel = { nouveau:'NOUVEAU', en_cours:'EN COURS', resolu:'RÉSOLU', ferme:'FERMÉ' }[f.statut] || f.statut.toUpperCase();
+  const statColor = { nouveau:[29,78,216], en_cours:[146,64,14], resolu:[6,95,70], ferme:[107,114,128] }[f.statut] || MUTED;
+  doc.setFontSize(9);
+  doc.setTextColor(...statColor);
+  doc.text(statLabel, W - M, y, { align: 'right' });
+
+  y += 7;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(...DARK);
+  const addrText = `${f.adresse || ''}${f.commune ? ', ' + f.commune : ''}`;
+  doc.text(addrText, M, y);
+
+  y += 9;
+  doc.setDrawColor(...BORD);
+  doc.line(M, y, W - M, y);
+  y += 8;
+
+  // ── Grille métadonnées 2 colonnes ──
+  const urgLabel = { normale:'Normale', urgente:'Urgente', critique:'Critique' }[f.urgence] || f.urgence;
+  const posLabel = f.position === 'avant_compteur' ? 'Avant compteur (TRVO)' : 'Après compteur (RU)';
+  const dtFmt = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }) : '—';
+
+  const meta = [
+    ['Position', posLabel],
+    ['Urgence', urgLabel],
+    ['Intervenant', f.intervenant || '—'],
+    ['Détectée le', dtFmt(f.date_detection || f.created_at)],
+    ['Réparée le', dtFmt(f.date_reparation)],
+    ['GPS', f.lat ? `${parseFloat(f.lat).toFixed(5)}, ${parseFloat(f.lon).toFixed(5)}` : '—'],
+  ];
+
+  meta.forEach((item, i) => {
+    const x = i % 2 === 0 ? M : COL2;
+    if (i % 2 === 0 && i > 0) y += 12;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED);
+    doc.text(item[0].toUpperCase(), x, y);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(...DARK);
+    doc.text(item[1], x, y + 5);
+  });
+  y += 16;
+
+  doc.setDrawColor(...BORD);
+  doc.line(M, y, W - M, y);
+  y += 8;
+
+  // ── Description ──
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...MUTED);
+  doc.text('DESCRIPTION', M, y);
+  y += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(...DARK);
+  const descLines = doc.splitTextToSize(f.description || '—', cw);
+  doc.text(descLines, M, y);
+  y += descLines.length * 5.5 + 4;
+
+  // ── Commentaire ──
+  if (f.commentaire) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED);
+    doc.text('COMMENTAIRE INTERNE', M, y);
+    y += 5;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.setTextColor(...DARK);
+    const commLines = doc.splitTextToSize(f.commentaire, cw);
+    doc.text(commLines, M, y);
+    y += commLines.length * 5 + 4;
+  }
+
+  // ── Historique ──
+  if (hist.length > 0) {
+    doc.setDrawColor(...BORD);
+    doc.line(M, y, W - M, y);
+    y += 8;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED);
+    doc.text('HISTORIQUE DES MODIFICATIONS', M, y);
+    y += 6;
+
+    hist.forEach(h => {
+      if (y > 268) { doc.addPage(); y = 20; }
+      doc.setFillColor(240, 244, 248);
+      doc.roundedRect(M, y - 4, cw, 12, 2, 2, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(...DARK);
+      const sAvant = h.statut_avant.replace('_', ' ');
+      const sApres = h.statut_apres.replace('_', ' ');
+      doc.text(`${sAvant}  →  ${sApres}`, M + 3, y + 2);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...MUTED);
+      const metaStr = new Date(h.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
+        + (h.commentaire ? ' · ' + h.commentaire : '');
+      doc.text(metaStr, M + 3, y + 7);
+      y += 15;
+    });
+  }
+
+  // ── Pied de page ──
+  const pageCount = doc.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(...BORD);
+    doc.line(M, 284, W - M, 284);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...MUTED);
+    doc.text(`Fuit'Eau · CAPV · Document confidentiel`, M, 289);
+    doc.text(`${p}/${pageCount}`, W - M, 289, { align: 'right' });
+  }
+
+  doc.save(`fiche-fuite-${(f.reference || 'sans-ref').replace(/[^A-Z0-9-]/gi, '_')}.pdf`);
+}
+
+// ── Email notification (edge function) ──────────────────────────
+async function envoyerEmail(btn) {
+  if (!currentFiche) return;
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<svg class="spinner-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:15px;height:15px;animation:spin .7s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Envoi…`;
+
+  try {
+    const { error } = await sb.functions.invoke('notify-fuite', {
+      body: { type: 'manuelle', fuite: currentFiche }
+    });
+    if (error) throw error;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:15px;height:15px"><path d="M20 6L9 17l-5-5"/></svg> Envoyé !`;
+    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 3000);
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+    alert('Erreur envoi email : ' + (err.message || err));
+  }
+}
 
 // ── Utils ───────────────────────────────────────────────────────
 function escHtml(s) {
