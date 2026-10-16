@@ -746,7 +746,8 @@ document.getElementById('createForm').addEventListener('submit', async e => {
     description:   document.getElementById('fDescription').value.trim(),
     intervenant:   document.getElementById('fIntervenant').value.trim() || null,
     commentaire:   document.getElementById('fCommentaire').value.trim() || null,
-    coordonnees:   lat && lng ? `POINT(${lng} ${lat})` : null,
+    lat:           lat || null,
+    lon:           lng || null,
     statut:        'nouveau',
   };
 
@@ -843,7 +844,7 @@ async function openDetail(id) {
         <div class="detail-meta-item"><span class="label">Intervenant</span>${f.intervenant || '—'}</div>
         <div class="detail-meta-item"><span class="label">Créé le</span>${date(f.created_at)}</div>
         <div class="detail-meta-item"><span class="label">Dernière modif.</span>${date(f.updated_at)}</div>
-        <div class="detail-meta-item"><span class="label">Coordonnées</span>${f.coordonnees ? '✓ GPS enregistré' : '—'}</div>
+        <div class="detail-meta-item"><span class="label">Coordonnées</span>${f.lat ? '✓ GPS enregistré' : '—'}</div>
       </div>
     </div>
 

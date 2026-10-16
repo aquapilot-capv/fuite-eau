@@ -172,8 +172,8 @@ let map;
 
   const { data: fuites } = await sb
     .from('fuites')
-    .select('id,reference,adresse,commune,statut,urgence,position,description,coordonnees')
-    .not('coordonnees', 'is', null)
+    .select('id,reference,adresse,commune,statut,urgence,position,description,lat,lon')
+    .not('lat', 'is', null)
     .order('created_at', { ascending: false });
 
   const { data: all } = await sb.from('fuites').select('id', { count:'exact', head:true });
@@ -185,7 +185,7 @@ let map;
   }
 
   // Avertissement si certaines fiches n'ont pas de GPS
-  if (all && fuites.length < (all.length || 0)) {
+  if (all && fuites.length < (all[0]?.count || 0)) {
     document.getElementById('noGpsPanel').style.display = 'block';
   }
 
@@ -193,11 +193,8 @@ let map;
   const bounds = [];
 
   fuites.forEach(f => {
-    // coordonnees est stocké comme "POINT(lng lat)"
-    const match = String(f.coordonnees).match(/POINT\(([^ ]+) ([^ )]+)\)/);
-    if (!match) return;
-    const lng = parseFloat(match[1]);
-    const lat = parseFloat(match[2]);
+    const lat = parseFloat(f.lat);
+    const lng = parseFloat(f.lon);
     if (isNaN(lat) || isNaN(lng)) return;
 
     bounds.push([lat, lng]);
