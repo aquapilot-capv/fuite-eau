@@ -336,7 +336,7 @@ body {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 700px;
+  min-width: 820px;
   background: var(--surface);
   border-radius: 10px;
   overflow: hidden;
@@ -452,7 +452,7 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
   color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
   margin-bottom: .3rem;
 }
-.form-row input, .form-row textarea, .form-row select {
+.form-row input:not([type=checkbox]), .form-row textarea, .form-row select {
   width: 100%; padding: .6rem .85rem;
   border: 1.5px solid var(--border); border-radius: 8px;
   background: var(--bg); color: var(--text);
@@ -499,6 +499,24 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
 }
 .form-msg.error   { background: #fde8e6; color: var(--error); display: block; }
 .form-msg.success { background: #e6f4ec; color: var(--success); display: block; }
+
+/* Sections de formulaire */
+.form-section {
+  font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--primary); margin: 1.1rem 0 .6rem; padding-bottom: .3rem;
+  border-bottom: 1px solid var(--border);
+}
+.field-hint { font-size: .72rem; color: var(--muted); margin-top: .25rem; min-height: 1em; }
+.check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: .85rem; }
+@media (max-width: 420px) { .check-grid { grid-template-columns: 1fr; } }
+.check {
+  display: flex; align-items: center; gap: .5rem; cursor: pointer;
+  padding: .5rem .7rem; border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--bg); font-size: .85rem; font-weight: 600;
+}
+.check input { width: 18px; height: 18px; accent-color: var(--primary); }
+.check:has(input:checked) { border-color: var(--primary); color: var(--primary); }
+.flag { background: #FEE2E2; color: #991B1B; }
 
 /* Intervenant field */
 .intervenant-btns { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .3rem; }
@@ -768,13 +786,14 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
             <th>Commune</th>
             <th>Adresse</th>
             <th>Type</th>
+            <th>Réseau</th>
             <th>Urgence</th>
             <th>Statut</th>
             <th>Intervenant</th>
           </tr>
         </thead>
         <tbody id="tableBody">
-          <tr class="empty-row"><td colspan="8">Chargement…</td></tr>
+          <tr class="empty-row"><td colspan="9">Chargement…</td></tr>
         </tbody>
       </table>
     </div>
@@ -830,29 +849,88 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
       <div class="form-cols">
         <div class="form-row">
           <label>Type de fuite</label>
-          <select id="fTypeFuite">
-            <option value="">— Non précisé —</option>
-            <option value="branchement">Branchement</option>
-            <option value="conduite">Conduite</option>
-            <option value="raccord">Raccord</option>
-            <option value="vanne">Vanne</option>
-            <option value="autre">Autre</option>
-          </select>
+          <select id="fTypeFuite"></select>
+        </div>
+        <div class="form-row">
+          <label>Cause probable</label>
+          <select id="fCause"></select>
+        </div>
+      </div>
+
+      <div class="form-section">Réseau</div>
+      <div class="form-cols">
+        <div class="form-row">
+          <label>Matériau</label>
+          <select id="fMateriau"></select>
+        </div>
+        <div class="form-row">
+          <label>DN (mm)</label>
+          <input type="number" id="fDn" min="10" max="2000" step="1" inputmode="numeric" placeholder="63">
+        </div>
+      </div>
+      <div class="form-cols">
+        <div class="form-row">
+          <label>Année de pose</label>
+          <input type="number" id="fAnneePose" min="1850" max="2100" step="1" inputmode="numeric" placeholder="1975">
+          <div class="field-hint" id="ageHint"></div>
+        </div>
+        <div class="form-row">
+          <label>Profondeur (m)</label>
+          <input type="number" id="fProfondeur" min="0" max="9.99" step="0.05" inputmode="decimal" placeholder="1.20">
+        </div>
+      </div>
+      <div class="form-cols">
+        <div class="form-row">
+          <label>Pression (bar)</label>
+          <input type="number" id="fPression" min="0" max="30" step="0.1" inputmode="decimal" placeholder="4.5">
+        </div>
+        <div class="form-row">
+          <label>Revêtement</label>
+          <select id="fRevetement"></select>
+        </div>
+      </div>
+
+      <div class="form-section">Détection et intervention</div>
+      <div class="form-cols">
+        <div class="form-row">
+          <label>Technique de détection</label>
+          <select id="fDetection"></select>
+        </div>
+        <div class="form-row">
+          <label>Débit estimé (m³/h)</label>
+          <input type="number" id="fDebit" min="0" max="9999" step="0.01" inputmode="decimal" placeholder="0.5">
+        </div>
+      </div>
+      <div class="form-cols">
+        <div class="form-row">
+          <label>Longueur réparée (m)</label>
+          <input type="number" id="fLongueur" min="0" max="9999" step="0.1" inputmode="decimal" placeholder="1.5">
         </div>
         <div class="form-row">
           <label>Intervenant</label>
           <input type="text" id="fIntervenant" placeholder="Nom de l'agent">
         </div>
       </div>
-
       <div class="form-row">
-        <label>Intervenants</label>
         <div class="intervenant-btns" id="intervenantBtns"></div>
+      </div>
+
+      <div class="form-section">Contraintes</div>
+      <div class="check-grid">
+        <label class="check"><input type="checkbox" id="fRoute"> Route barrée</label>
+        <label class="check"><input type="checkbox" id="fArret"> Arrêt d'eau</label>
+        <label class="check"><input type="checkbox" id="fEcole"> École à proximité</label>
+        <label class="check"><input type="checkbox" id="fRenouv"> Conduite renouvelée</label>
       </div>
 
       <div class="form-row">
         <label>Description *</label>
         <textarea id="fDescription" placeholder="Type de fuite, débit estimé, localisation précise…" required></textarea>
+      </div>
+
+      <div class="form-row">
+        <label>Recommandation</label>
+        <textarea id="fRecommandation" placeholder="Renouvellement à prévoir, surveillance, travaux complémentaires…" style="min-height:56px"></textarea>
       </div>
 
       <div class="form-row">
@@ -897,7 +975,14 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const INTERVENANTS = ['Jérémy','Jean-Phi','Agent 3','Agent 4'];
-const TYPE_LABELS = { branchement:'Branchement', conduite:'Conduite', raccord:'Raccord', vanne:'Vanne', autre:'Autre' };
+const TYPE_LABELS = { branchement:'Branchement', casse_nette:'Casse nette', raccord:'Raccord / pièce', joint_coule:'Joint coulé', presse_etoupe:'Presse-étoupe', casse_entreprise:'Casse entreprise', vanne:'Vanne', regulation:'Organe de régulation', fissure:'Fissure', corrosion:'Corrosion / perçage', ventouse:'Ventouse', poteau_incendie:'Poteau incendie', compteur:'Compteur', autre:'Autre' };
+const MAT_LABELS  = { fonte:'Fonte grise', fonte_ductile:'Fonte ductile', acier:'Acier', pehd:'PEHD', pvc:'PVC', amiante_ciment:'Amiante-ciment', plomb:'Plomb', cuivre:'Cuivre', autre:'Autre' };
+const CAUSE_LABELS = { vetuste:'Vétusté', corrosion:'Corrosion', joint:'Joint défaillant', choc_tiers:'Choc / travaux tiers', gel:'Gel', mouvement_terrain:'Mouvement de terrain', surpression:'Surpression / coup de bélier', defaut_pose:'Défaut de pose', inconnue:'Inconnue' };
+const REVET_LABELS = { enrobe:'Enrobé', beton:'Béton', pave:'Pavés', trottoir:'Trottoir', terre:'Terre / espace vert', prive:'Domaine privé', autre:'Autre' };
+const DETECT_LABELS = ['Signalement usager','Constat visuel','Écoute au sol','Corrélation acoustique','Gaz traceur','Débit nocturne / sectorisation','Télérelève / alerte','Autre'];
+const optHtml = (map, empty='— Non précisé —') => `<option value="">${empty}</option>` + Object.entries(map).map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
+const lbl = (map, k) => k ? (map[k] || k) : '—';
+const yn = v => v === true ? 'Oui' : v === false ? 'Non' : '—';
 
 // ── Auth guard ──────────────────────────────────────────────────
 let myRole = '', myEmail = '';
@@ -917,6 +1002,7 @@ let myRole = '', myEmail = '';
   document.getElementById('userRole').textContent  = myRole;
   document.getElementById('userAvatar').textContent = (myEmail[0] || '?').toUpperCase();
 
+  initSelects();
   initIntervenants();
   loadFiches();
   setupRealtime();
@@ -1004,7 +1090,12 @@ async function loadFiches() {
     .from('fuites')
     .select('*')
     .order('created_at', { ascending: false });
-  if (!error) { allFiches = data || []; renderFiches(); }
+  if (!error) {
+    // Tri par date réelle de détection (les fiches importées ont toutes la même created_at)
+    const d = f => new Date(f.date_detection || f.created_at).getTime();
+    allFiches = (data || []).sort((a, b) => d(b) - d(a));
+    renderFiches();
+  }
 }
 
 function renderFiches() {
@@ -1022,7 +1113,7 @@ function renderFiches() {
 
   const body = document.getElementById('tableBody');
   if (!fiches.length) {
-    body.innerHTML = `<tr class="empty-row"><td colspan="8">Aucune fiche${filterStatut || filterUrgence || searchTerm ? ' pour ces filtres' : ''}</td></tr>`;
+    body.innerHTML = `<tr class="empty-row"><td colspan="9">Aucune fiche${filterStatut || filterUrgence || searchTerm ? ' pour ces filtres' : ''}</td></tr>`;
     return;
   }
 
@@ -1038,8 +1129,8 @@ function renderFiches() {
                    : f.urgence === 'urgente'  ? 'row-urgente'
                    : 'row-normale';
 
-    const date = new Date(f.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
-    const typeLabel = f.type_fuite ? (TYPE_LABELS[f.type_fuite] || f.type_fuite) : '—';
+    const date = new Date(f.date_detection || f.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+    const typeLabel = lbl(TYPE_LABELS, f.type_fuite);
 
     return `<tr class="${rowClass}" onclick="openDetail('${f.id}')">
       <td class="td-ref">${f.reference || '—'}</td>
@@ -1047,11 +1138,18 @@ function renderFiches() {
       <td class="td-commune">${escHtml(f.commune || '—')}</td>
       <td class="td-adresse" title="${escHtml(f.adresse||'')}">${escHtml(f.adresse || '—')}</td>
       <td>${typeLabel}</td>
+      <td class="td-date">${reseauStr(f)}</td>
       <td><span class="badge ${urgBadge[f.urgence]||''}">${f.urgence}</span></td>
       <td><span class="badge ${statBadge[f.statut]||''}">${f.statut.replace('_',' ')}</span></td>
       <td class="td-intervenant">${escHtml(f.intervenant || '—')}</td>
     </tr>`;
   }).join('');
+}
+
+function reseauStr(f) {
+  const m = f.reseau_materiau ? (MAT_LABELS[f.reseau_materiau] || f.reseau_materiau) : '';
+  const d = f.dn ? 'DN' + f.dn : '';
+  return [m, d].filter(Boolean).join(' ') || '—';
 }
 
 function updateStats() {
@@ -1082,6 +1180,18 @@ function setupRealtime() {
   sb.channel('fuites-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'fuites' }, () => loadFiches())
     .subscribe();
+}
+
+function initSelects() {
+  document.getElementById('fTypeFuite').innerHTML  = optHtml(TYPE_LABELS);
+  document.getElementById('fCause').innerHTML      = optHtml(CAUSE_LABELS);
+  document.getElementById('fMateriau').innerHTML   = optHtml(MAT_LABELS);
+  document.getElementById('fRevetement').innerHTML = optHtml(REVET_LABELS);
+  document.getElementById('fDetection').innerHTML  = '<option value="">— Non précisé —</option>' + DETECT_LABELS.map(d => `<option>${d}</option>`).join('');
+  document.getElementById('fAnneePose').addEventListener('input', e => {
+    const y = parseInt(e.target.value, 10), h = document.getElementById('ageHint');
+    h.textContent = (y >= 1850 && y <= new Date().getFullYear()) ? `≈ ${new Date().getFullYear() - y} ans` : '';
+  });
 }
 
 // ── Intervenants ────────────────────────────────────────────────
@@ -1143,6 +1253,21 @@ document.getElementById('createForm').addEventListener('submit', async e => {
     intervenant: document.getElementById('fIntervenant').value.trim() || null,
     commentaire: document.getElementById('fCommentaire').value.trim() || null,
     type_fuite:  document.getElementById('fTypeFuite').value || null,
+    cause_fuite: document.getElementById('fCause').value || null,
+    reseau_materiau: document.getElementById('fMateriau').value || null,
+    dn:          intOrNull('fDn'),
+    annee_pose:  intOrNull('fAnneePose'),
+    profondeur_m: numOrNull('fProfondeur'),
+    pression_bar: numOrNull('fPression'),
+    revetement:  document.getElementById('fRevetement').value || null,
+    technique_detection: document.getElementById('fDetection').value || null,
+    debit_estime: numOrNull('fDebit'),
+    longueur_reparee_m: numOrNull('fLongueur'),
+    route_barrer: document.getElementById('fRoute').checked,
+    arret_eau:   document.getElementById('fArret').checked,
+    ecole_proximite: document.getElementById('fEcole').checked,
+    conduite_renouvelee: document.getElementById('fRenouv').checked ? true : null,
+    recommandation: document.getElementById('fRecommandation').value.trim() || null,
     lat:         lat || null,
     lon:         lng || null,
     statut:      'nouveau',
@@ -1160,6 +1285,7 @@ document.getElementById('createForm').addEventListener('submit', async e => {
 
   document.getElementById('createOverlay').hidden = true;
   document.getElementById('createForm').reset();
+  document.getElementById('ageHint').textContent = '';
   document.querySelectorAll('.intervenant-btn').forEach(b => b.classList.remove('active'));
   btn.disabled = false;
   btn.textContent = 'Créer la fiche';
@@ -1189,7 +1315,9 @@ async function openDetail(id) {
   const posBadge = f.position === 'avant_compteur' ? 'badge-av' : 'badge-ap';
   const posLabel = f.position === 'avant_compteur' ? 'Avant compteur (TRVO)' : 'Après compteur (RU)';
   const date = d => new Date(d).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
-  const typeStr = f.type_fuite ? (TYPE_LABELS[f.type_fuite] || f.type_fuite) : '—';
+  const typeStr = lbl(TYPE_LABELS, f.type_fuite);
+  const age = f.annee_pose ? `${f.annee_pose} (≈ ${new Date().getFullYear() - f.annee_pose} ans)` : '—';
+  const flags = [f.route_barrer && 'Route barrée', f.arret_eau && 'Arrêt d\'eau', f.ecole_proximite && 'École à proximité'].filter(Boolean);
 
   const statutOptions = [
     { val:'nouveau',  label:'Nouveau' },
@@ -1233,6 +1361,7 @@ async function openDetail(id) {
       <span class="badge ${{ normale:'badge-nor', urgente:'badge-urg', critique:'badge-cri' }[f.urgence]}">${f.urgence}</span>
       <span class="badge ${{ nouveau:'badge-nou', en_cours:'badge-enc', resolu:'badge-res', ferme:'badge-fer' }[f.statut]}" id="currentStatutBadge">${f.statut.replace('_',' ')}</span>
       ${f.type_fuite ? `<span class="badge" style="background:#F0FDF4;color:#166534">${typeStr}</span>` : ''}
+      ${flags.map(x => `<span class="badge flag">${x}</span>`).join('')}
       ${f.alerte_6h_envoyee ? '<span class="badge badge-ale">⚠ Alerte 6h envoyée</span>' : ''}
     </div>
 
@@ -1246,11 +1375,30 @@ async function openDetail(id) {
       <div class="detail-meta">
         <div class="detail-meta-item"><span class="label">Intervenant</span>${escHtml(f.intervenant || '—')}</div>
         <div class="detail-meta-item"><span class="label">Type de fuite</span>${typeStr}</div>
+        <div class="detail-meta-item"><span class="label">Cause probable</span>${lbl(CAUSE_LABELS, f.cause_fuite)}</div>
+        <div class="detail-meta-item"><span class="label">Détection</span>${escHtml(f.technique_detection || '—')}</div>
+        <div class="detail-meta-item"><span class="label">Débit estimé</span>${f.debit_estime != null ? f.debit_estime + ' m³/h' : '—'}</div>
         <div class="detail-meta-item"><span class="label">Créé le</span>${date(f.created_at)}</div>
         <div class="detail-meta-item"><span class="label">Dernière modif.</span>${date(f.updated_at)}</div>
         <div class="detail-meta-item"><span class="label">Coordonnées</span>${f.lat ? '✓ GPS enregistré' : '—'}</div>
       </div>
     </div>
+
+    <div class="detail-section">
+      <h3>Réseau</h3>
+      <div class="detail-meta">
+        <div class="detail-meta-item"><span class="label">Matériau</span>${lbl(MAT_LABELS, f.reseau_materiau)}</div>
+        <div class="detail-meta-item"><span class="label">DN</span>${f.dn ? f.dn + ' mm' : '—'}</div>
+        <div class="detail-meta-item"><span class="label">Année de pose</span>${age}</div>
+        <div class="detail-meta-item"><span class="label">Profondeur</span>${f.profondeur_m != null ? f.profondeur_m + ' m' : '—'}</div>
+        <div class="detail-meta-item"><span class="label">Pression</span>${f.pression_bar != null ? f.pression_bar + ' bar' : '—'}</div>
+        <div class="detail-meta-item"><span class="label">Revêtement</span>${lbl(REVET_LABELS, f.revetement)}</div>
+        <div class="detail-meta-item"><span class="label">Longueur réparée</span>${f.longueur_reparee_m != null ? f.longueur_reparee_m + ' m' : '—'}</div>
+        <div class="detail-meta-item"><span class="label">Conduite renouvelée</span>${yn(f.conduite_renouvelee)}</div>
+      </div>
+    </div>
+
+    ${f.recommandation ? `<div class="detail-section"><h3>Recommandation</h3><div class="detail-desc">${escHtml(f.recommandation)}</div></div>` : ''}
 
     ${f.commentaire ? `<div class="detail-section"><h3>Commentaire</h3><div class="detail-desc">${escHtml(f.commentaire)}</div></div>` : ''}
 
@@ -1350,14 +1498,26 @@ function generatePDF() {
   const urgLabel = { normale:'Normale', urgente:'Urgente', critique:'Critique' }[f.urgence] || f.urgence;
   const posLabel = f.position === 'avant_compteur' ? 'Avant compteur (TRVO)' : 'Après compteur (RU)';
   const dtFmt = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }) : '—';
-  const typeStr = f.type_fuite ? (TYPE_LABELS[f.type_fuite] || f.type_fuite) : '—';
+  const typeStr = lbl(TYPE_LABELS, f.type_fuite);
 
   const meta = [
     ['Position', posLabel],
     ['Urgence', urgLabel],
     ['Type de fuite', typeStr],
+    ['Cause probable', lbl(CAUSE_LABELS, f.cause_fuite)],
+    ['Matériau', lbl(MAT_LABELS, f.reseau_materiau)],
+    ['DN', f.dn ? f.dn + ' mm' : '—'],
+    ['Année de pose', f.annee_pose ? `${f.annee_pose} (≈ ${new Date().getFullYear() - f.annee_pose} ans)` : '—'],
+    ['Profondeur', f.profondeur_m != null ? f.profondeur_m + ' m' : '—'],
+    ['Pression', f.pression_bar != null ? f.pression_bar + ' bar' : '—'],
+    ['Revêtement', lbl(REVET_LABELS, f.revetement)],
+    ['Détection', f.technique_detection || '—'],
+    ['Débit estimé', f.debit_estime != null ? f.debit_estime + ' m³/h' : '—'],
+    ['Longueur réparée', f.longueur_reparee_m != null ? f.longueur_reparee_m + ' m' : '—'],
+    ['Contraintes', [f.route_barrer && 'Route barrée', f.arret_eau && "Arrêt d'eau", f.ecole_proximite && 'École'].filter(Boolean).join(', ') || '—'],
     ['Intervenant', f.intervenant || '—'],
     ['Détectée le', dtFmt(f.date_detection || f.created_at)],
+    ['Réparée le', dtFmt(f.date_reparation)],
     ['GPS', f.lat ? `${parseFloat(f.lat).toFixed(5)}, ${parseFloat(f.lon).toFixed(5)}` : '—'],
   ];
 
@@ -1390,6 +1550,21 @@ function generatePDF() {
   const descLines = doc.splitTextToSize(f.description || '—', cw);
   doc.text(descLines, M, y);
   y += descLines.length * 5.5 + 4;
+
+  if (f.recommandation) {
+    if (y > 250) { doc.addPage(); y = 20; }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED);
+    doc.text('RECOMMANDATION', M, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...DARK);
+    const recLines = doc.splitTextToSize(f.recommandation, cw);
+    doc.text(recLines, M, y);
+    y += recLines.length * 5.5 + 4;
+  }
 
   if (f.commentaire) {
     doc.setFont('helvetica', 'bold');
@@ -1467,7 +1642,9 @@ async function envoyerEmail(btn) {
   }
 }
 
-// ── Utils ────────────────────────────────────────────────────────
+// ── Utils ──
+function numOrNull(id) { const v = parseFloat(document.getElementById(id).value); return Number.isFinite(v) ? v : null; }
+function intOrNull(id) { const v = parseInt(document.getElementById(id).value, 10); return Number.isFinite(v) ? v : null; }
 function escHtml(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
