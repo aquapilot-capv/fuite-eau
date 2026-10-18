@@ -1010,6 +1010,13 @@ let myRole = '', myEmail = '';
   initIntervenants();
   loadFiches();
   setupRealtime();
+
+  // Ouverture directe depuis la carte : ./fiches.html?fiche=<uuid>
+  const urlFiche = new URLSearchParams(window.location.search).get('fiche');
+  if (urlFiche) {
+    history.replaceState(null, '', window.location.pathname); // nettoie l'URL sans rechargement
+    openDetail(urlFiche);
+  }
 })();
 
 // ── Logout ──────────────────────────────────────────────────────

@@ -607,7 +607,7 @@ function buildAllMarkers() {
         </div>
         ${typeLabel ? `<div class="popup-type">${typeLabel}</div>` : ''}
         ${f.description ? `<div class="popup-desc">${escHtml(f.description)}</div>` : ''}
-        <button class="popup-btn" onclick="window.location.href='./fiches.html'">Voir les fiches →</button>
+        <button class="popup-btn" onclick="window.location.href='./fiches.html?fiche=${f.id}'">Voir la fiche →</button>
       </div>
     `, { maxWidth: 280 });
 
