@@ -1,121 +1,292 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta name="claude:viewport-fit-sides" content="cover">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Fuit'Eau — Carte</title>
+
+<!-- CDN — à auto-héberger dans le repo à l'étape 2 (RGPD) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+
 <style>
+/* ── Tokens ── */
 :root {
   --bg:#F0F4F8; --surface:#FFFFFF; --border:#D1DCE8;
   --primary:#0C5E8A; --primary-h:#0A4D72; --accent:#E05A20;
-  --text:#1A2B3C; --muted:#6B7F93; --error:#C0392B; --success:#1A7A45;
-  color-scheme:light;
+  --text:#1A2B3C; --muted:#6B7F93;
+  color-scheme: light;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0D1B2A;--surface:#162535;--border:#2A3F54;--primary:#2A8FBF;--primary-h:#3AA0D0;
-  --text:#E2EAF0;--muted:#8BA4BA;color-scheme:dark;
+@media (prefers-color-scheme:dark) { :root:not([data-theme="light"]) {
+  --bg:#0D1B2A; --surface:#162535; --border:#2A3F54;
+  --primary:#2A8FBF; --primary-h:#3AA0D0;
+  --text:#E2EAF0; --muted:#8BA4BA; color-scheme:dark;
 }}
-:root[data-theme="dark"]{
-  --bg:#0D1B2A;--surface:#162535;--border:#2A3F54;--primary:#2A8FBF;--primary-h:#3AA0D0;
-  --text:#E2EAF0;--muted:#8BA4BA;color-scheme:dark;
-}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;overflow:hidden;
-  padding-left:max(0px,env(safe-area-inset-left,0px));
-  padding-right:max(0px,env(safe-area-inset-right,0px));
-  background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif}
-.header{background:var(--primary);color:#fff;padding:.65rem max(1rem,env(safe-area-inset-left,0px));
-  display:flex;align-items:center;gap:.75rem;
-  position:relative;z-index:1000;box-shadow:0 1px 8px rgba(0,0,0,.2)}
-.header-logo{display:flex;align-items:center;gap:.55rem;flex:1;min-width:0}
-.header-icon{width:32px;height:32px;flex-shrink:0;background:rgba(255,255,255,.18);border-radius:7px;
-  display:flex;align-items:center;justify-content:center}
-.header-icon svg{width:18px;height:18px;fill:#fff}
-.header-title{font-weight:700;font-size:.95rem}
-.header-sub{font-size:.68rem;opacity:.75}
-.nav-back{background:rgba(255,255,255,.15);border:none;color:#fff;padding:.3rem .65rem;
-  border-radius:7px;cursor:pointer;font-size:.78rem;font-weight:600;display:flex;align-items:center;gap:.3rem}
-.nav-back:hover{background:rgba(255,255,255,.28)}
-.nav-back svg{width:15px;height:15px}
-
-#map {
-  height: calc(100dvh - 52px - env(safe-area-inset-top,0px));
-  width: 100%;
+:root[data-theme="dark"] {
+  --bg:#0D1B2A; --surface:#162535; --border:#2A3F54;
+  --primary:#2A8FBF; --primary-h:#3AA0D0;
+  --text:#E2EAF0; --muted:#8BA4BA; color-scheme:dark;
 }
 
-/* Leaflet popup custom */
-.leaflet-popup-content-wrapper {
-  border-radius: 10px !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,.15) !important;
-  font-family: system-ui, -apple-system, sans-serif !important;
-  padding: 0 !important;
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: system-ui,-apple-system,sans-serif;
+  background: var(--bg);
+  color: var(--text);
 }
-.leaflet-popup-content { margin: 0 !important; }
-.popup-inner {
-  padding: .75rem 1rem;
-  min-width: 200px;
-  max-width: 260px;
-}
-.popup-ref { font-size: .73rem; font-weight: 700; color: #0C5E8A; font-family: monospace; }
-.popup-addr { font-size: .88rem; font-weight: 700; margin: .15rem 0 .4rem; line-height: 1.3; }
-.popup-badges { display: flex; gap: .3rem; flex-wrap: wrap; margin-bottom: .35rem; }
-.popup-badge {
-  display: inline-flex; align-items: center;
-  padding: .12rem .45rem; border-radius: 8px;
-  font-size: .68rem; font-weight: 700; text-transform: uppercase;
-}
-.pb-nou { background: #DBEAFE; color: #1D4ED8; }
-.pb-enc { background: #FEF3C7; color: #92400E; }
-.pb-res { background: #D1FAE5; color: #065F46; }
-.pb-fer { background: #F3F4F6; color: #6B7280; }
-.pb-nor { background: #E0F2FE; color: #0369A1; }
-.pb-urg { background: #FEF3C7; color: #92400E; }
-.pb-cri { background: #FEE2E2; color: #991B1B; }
-.popup-desc { font-size: .8rem; color: #6B7F93; line-height: 1.4;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
-.popup-btn {
-  display: block; width: 100%; margin-top: .5rem;
-  padding: .4rem .7rem; background: #0C5E8A; color: #fff;
-  border: none; border-radius: 7px; font-size: .8rem; font-weight: 600;
-  cursor: pointer; text-align: center;
+body {
+  display: flex;
+  flex-direction: column;
+  position: relative; /* ancrage pour les panneaux en position:fixed */
 }
 
-/* Legend */
-.map-legend {
-  position: absolute; bottom: max(1rem, env(safe-area-inset-bottom,0px));
-  left: max(1rem, env(safe-area-inset-left,0px));
-  z-index: 1000;
+/* ── Header ── */
+.header {
+  background: var(--primary);
+  color: #fff;
+  padding: .65rem max(1rem,env(safe-area-inset-right,0px)) .65rem max(1rem,env(safe-area-inset-left,0px));
+  padding-top: max(.65rem,env(safe-area-inset-top,0px));
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-shrink: 0;
+  z-index: 200;
+  box-shadow: 0 1px 6px rgba(0,0,0,.2);
+}
+.header-logo { display:flex; align-items:center; gap:.55rem; flex:1; min-width:0; }
+.header-icon {
+  width:32px; height:32px; flex-shrink:0;
+  background:rgba(255,255,255,.18); border-radius:7px;
+  display:flex; align-items:center; justify-content:center;
+}
+.header-icon svg { width:18px; height:18px; fill:#fff; }
+.header-title { font-weight:700; font-size:.95rem; }
+.header-sub   { font-size:.68rem; opacity:.75; }
+.nav-back {
+  background:rgba(255,255,255,.15); border:none; color:#fff;
+  padding:.3rem .65rem; border-radius:7px; cursor:pointer;
+  font-size:.78rem; font-weight:600;
+  display:flex; align-items:center; gap:.3rem; flex-shrink:0;
+  transition: background .15s;
+}
+.nav-back:hover { background:rgba(255,255,255,.28); }
+.nav-back svg { width:15px; height:15px; }
+
+/* ── Barre de filtres ── */
+.filter-bar {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: .6rem .8rem;
-  font-size: .75rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,.12);
-  min-width: 120px;
+  border-bottom: 1px solid var(--border);
+  padding: .4rem max(1rem,env(safe-area-inset-right,0px)) .4rem max(1rem,env(safe-area-inset-left,0px));
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex-shrink: 0;
+  /* Défilement horizontal sur mobile pour que la carte garde toute sa hauteur */
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
-.legend-title { font-weight: 700; margin-bottom: .4rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: .68rem; }
-.legend-item { display: flex; align-items: center; gap: .4rem; margin-bottom: .2rem; }
-.legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; border: 2px solid rgba(0,0,0,.15); }
+.filter-bar::-webkit-scrollbar { display: none; }
 
-/* GPS panel */
+.filter-bar select {
+  flex-shrink: 0;
+  padding: .32rem .55rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg); color: var(--text);
+  font-size: .8rem; outline: none; cursor: pointer;
+  transition: border-color .15s, color .15s;
+  min-width: 115px; max-width: 155px;
+  white-space: nowrap;
+}
+.filter-bar select:focus { border-color: var(--primary); }
+.filter-bar select.active {
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.btn-reset {
+  flex-shrink: 0;
+  padding: .32rem .65rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg); color: var(--muted);
+  font-size: .78rem; cursor: pointer;
+  display: flex; align-items: center; gap: .28rem;
+  transition: all .15s; white-space: nowrap;
+}
+.btn-reset svg { width:12px; height:12px; }
+.btn-reset:hover { border-color:var(--primary); color:var(--primary); }
+.btn-reset.has-filter { border-color:var(--accent); color:var(--accent); }
+
+.count-label {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: .5rem;
+  font-size: .78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.count-label strong { color: var(--text); }
+
+/* ── Carte ── */
+#map { flex: 1; min-height: 0; }
+
+/* ── Chargement ── */
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 3000;
+  background: rgba(240,244,248,.93);
+  display: flex; align-items: center; justify-content: center;
+  gap: .75rem; font-size: .9rem; color: #1A2B3C;
+  transition: opacity .2s;
+}
+@media (prefers-color-scheme:dark) {
+  .loading-overlay { background:rgba(13,27,42,.93); color:#E2EAF0; }
+}
+.loading-overlay.hidden { display:none; }
+.spin {
+  width:22px; height:22px; border-radius:50%;
+  border:3px solid rgba(12,94,138,.2);
+  border-top-color:#0C5E8A;
+  animation:spin .7s linear infinite; flex-shrink:0;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── Leaflet popup ── */
+.leaflet-popup-content-wrapper {
+  border-radius:10px !important;
+  box-shadow:0 4px 20px rgba(0,0,0,.15) !important;
+  font-family:system-ui,-apple-system,sans-serif !important;
+  padding:0 !important;
+}
+.leaflet-popup-content { margin:0 !important; }
+.popup-inner { padding:.7rem 1rem; min-width:200px; max-width:260px; }
+.popup-ref   { font-size:.72rem; font-weight:700; color:#0C5E8A; font-family:monospace; }
+.popup-addr  { font-size:.88rem; font-weight:700; margin:.15rem 0 .4rem; line-height:1.3; }
+.popup-badges { display:flex; gap:.3rem; flex-wrap:wrap; margin-bottom:.3rem; }
+.popup-badge  {
+  display:inline-flex; align-items:center;
+  padding:.1rem .42rem; border-radius:8px;
+  font-size:.66rem; font-weight:700; text-transform:uppercase;
+}
+.pb-nou { background:#DBEAFE; color:#1D4ED8; }
+.pb-enc { background:#FEF3C7; color:#92400E; }
+.pb-res { background:#D1FAE5; color:#065F46; }
+.pb-fer { background:#F3F4F6; color:#6B7280; }
+.pb-nor { background:#E0F2FE; color:#0369A1; }
+.pb-urg { background:#FEF3C7; color:#92400E; }
+.pb-cri { background:#FEE2E2; color:#991B1B; }
+.pb-pos { background:#F0E6FF; color:#6D28D9; }
+.popup-type { font-size:.74rem; color:#6B7F93; margin-bottom:.3rem; }
+.popup-desc {
+  font-size:.8rem; color:#6B7F93; line-height:1.4;
+  display:-webkit-box; -webkit-line-clamp:2;
+  -webkit-box-orient:vertical; overflow:hidden;
+}
+.popup-btn {
+  display:block; width:100%; margin-top:.5rem;
+  padding:.4rem .7rem; background:#0C5E8A; color:#fff;
+  border:none; border-radius:7px;
+  font-size:.8rem; font-weight:600; cursor:pointer; text-align:center;
+  transition:background .15s;
+}
+.popup-btn:hover { background:#0A4D72; }
+
+/* ── Marqueur ponctuel ── */
+.map-pin {
+  border-radius:50%;
+  border:2px solid rgba(255,255,255,.9);
+  box-shadow:0 1px 5px rgba(0,0,0,.4);
+  cursor:pointer;
+  transition:transform .1s;
+}
+.map-pin:hover { transform:scale(1.25); }
+
+/* ── Cluster (override MarkerCluster.Default) ── */
+.marker-cluster       { background:transparent !important; }
+.marker-cluster div   { background:transparent !important; }
+.cluster-outer        { background:transparent !important; border:none !important; }
+.cluster-marker {
+  border-radius:50%;
+  background:var(--primary);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-weight:800;
+  border:2.5px solid #fff;
+  box-shadow:0 2px 10px rgba(0,0,0,.3);
+  line-height:1;
+}
+
+/* ── Légende (fixed bottom-left) ── */
+.map-legend {
+  position:fixed;
+  bottom:max(1rem,env(safe-area-inset-bottom,1rem));
+  left:max(1rem,env(safe-area-inset-left,1rem));
+  z-index:1000;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:10px; padding:.55rem .75rem;
+  font-size:.73rem;
+  box-shadow:0 2px 12px rgba(0,0,0,.12);
+}
+.legend-title { font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; font-size:.63rem; margin-bottom:.32rem; }
+.legend-item  { display:flex; align-items:center; gap:.4rem; margin-bottom:.18rem; }
+.legend-dot   { width:10px; height:10px; border-radius:50%; flex-shrink:0; border:1.5px solid rgba(0,0,0,.12); }
+
+/* ── Panneau synthèse (fixed bottom-center) ── */
+.synthese-panel {
+  position:fixed;
+  bottom:max(1rem,env(safe-area-inset-bottom,1rem));
+  left:50%; transform:translateX(-50%);
+  z-index:1000;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:12px; padding:.65rem 1.1rem;
+  min-width:148px;
+  box-shadow:0 4px 20px rgba(0,0,0,.15);
+  display:none; text-align:center;
+  animation:fadeUp .2s ease;
+}
+@keyframes fadeUp {
+  from { opacity:0; transform:translateX(-50%) translateY(6px); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0); }
+}
+.syn-title { font-size:.65rem; font-weight:800; color:var(--primary); text-transform:uppercase; letter-spacing:.07em; margin-bottom:.28rem; line-height:1.3; }
+.syn-count { font-size:1.7rem; font-weight:800; color:var(--text); line-height:1; }
+.syn-unit  { font-size:.7rem; color:var(--muted); margin-bottom:.42rem; }
+.syn-row   { display:flex; align-items:center; gap:.35rem; font-size:.72rem; color:var(--text); justify-content:center; margin-top:.17rem; }
+.syn-dot   { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+/* ── Panneau sans-GPS (fixed bottom-right) ── */
 .no-gps-panel {
-  position: absolute; bottom: max(1rem, env(safe-area-inset-bottom,0px));
-  right: max(1rem, env(safe-area-inset-right,0px));
-  z-index: 1000;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 10px; padding: .65rem .8rem;
-  font-size: .78rem; color: var(--muted); max-width: 180px;
-  box-shadow: 0 2px 12px rgba(0,0,0,.12); line-height: 1.4;
-  display: none;
+  position:fixed;
+  bottom:max(1rem,env(safe-area-inset-bottom,1rem));
+  right:max(1rem,env(safe-area-inset-right,1rem));
+  z-index:1000;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:10px; padding:.52rem .72rem;
+  font-size:.72rem; color:var(--muted);
+  max-width:170px; line-height:1.4;
+  box-shadow:0 2px 12px rgba(0,0,0,.12);
+  display:none;
 }
 </style>
 </head>
 <body>
 
+<!-- ── Chargement ── -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spin"></div>
+  Chargement des fiches…
+</div>
+
+<!-- ── En-tête ── -->
 <header class="header">
   <div class="header-logo">
     <div class="header-icon">
@@ -134,120 +305,342 @@ html,body{height:100%;overflow:hidden;
   </button>
 </header>
 
+<!-- ── Barre de filtres ── -->
+<div class="filter-bar">
+  <select id="fCommune" title="Commune">
+    <option value="">Toutes les communes</option>
+  </select>
+  <select id="fAnnee" title="Année de détection">
+    <option value="">Toutes les années</option>
+  </select>
+  <select id="fType" title="Type de fuite">
+    <option value="">Tous les types</option>
+  </select>
+  <select id="fUrgence" title="Urgence">
+    <option value="">Toute urgence</option>
+    <option value="critique">🔴 Critique</option>
+    <option value="urgente">🟡 Urgente</option>
+    <option value="normale">🔵 Normale</option>
+  </select>
+  <button class="btn-reset" id="btnReset" title="Réinitialiser les filtres">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M18 6L6 18M6 6l12 12"/>
+    </svg>
+    Tout
+  </button>
+  <div class="count-label" id="countLabel">—</div>
+</div>
+
+<!-- ── Carte ── -->
 <div id="map"></div>
 
+<!-- ── Panneaux flottants ── -->
 <div class="map-legend">
   <div class="legend-title">Urgence</div>
   <div class="legend-item"><div class="legend-dot" style="background:#DC2626"></div>Critique</div>
   <div class="legend-item"><div class="legend-dot" style="background:#D97706"></div>Urgente</div>
   <div class="legend-item"><div class="legend-dot" style="background:#0C5E8A"></div>Normale</div>
   <div class="legend-item"><div class="legend-dot" style="background:#1A7A45"></div>Résolue</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#9CA3AF"></div>Fermée</div>
 </div>
 
-<div class="no-gps-panel" id="noGpsPanel">
-  Certaines fiches n'ont pas de coordonnées GPS et n'apparaissent pas sur la carte.
-</div>
+<div class="synthese-panel" id="synthesePanel"></div>
+
+<div class="no-gps-panel" id="noGpsPanel"></div>
 
 <script>
+// ── Config Supabase ───────────────────────────────────────────────────
 const SUPABASE_URL  = 'https://nygrwybqyrkqrkmszisv.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55Z3J3eWJxeXJrcXJrbXN6aXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxNTEyMDIsImV4cCI6MjEwNzcyNzIwMn0.f-mZi4Pyq7Rbh9k1OUvr3ufp77i8xzybub4QO2VNWUM';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-// Centre sur Voiron / CAPV
 const MAP_CENTER = [45.3625, 5.5936];
 const MAP_ZOOM   = 12;
 
-let map;
+const TYPE_LABELS = {
+  branchement:'Branchement', casse_nette:'Casse nette', raccord:'Raccord / pièce',
+  joint_coule:'Joint coulé', presse_etoupe:'Presse-étoupe', casse_entreprise:'Casse entreprise',
+  vanne:'Vanne', regulation:'Organe de régulation', fissure:'Fissure',
+  corrosion:'Corrosion / perçage', ventouse:'Ventouse', poteau_incendie:'Poteau incendie',
+  compteur:'Compteur', autre:'Autre'
+};
+const COLOR_MAP = { critique:'#DC2626', urgente:'#D97706', normale:'#0C5E8A' };
 
+// ── État ─────────────────────────────────────────────────────────────
+let map, clusterGroup;
+let allFuites  = [];          // toutes les fuites chargées
+let allMarkers = [];          // { marker: L.Marker, fuite: object }
+
+let fCommune = '', fAnnee = '', fType = '', fUrgence = '';
+
+// ── Démarrage ─────────────────────────────────────────────────────────
 (async () => {
+  // Auth
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { window.location.replace('./index.html'); return; }
 
+  // Carte
   map = L.map('map', { center: MAP_CENTER, zoom: MAP_ZOOM });
-
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
     maxZoom: 19
   }).addTo(map);
 
-  // Supabase plafonne chaque requête à 1000 lignes : on pagine (tri sur id, stable)
-  const PAGE = 1000;
-  let fuites = [], from = 0;
-  while (true) {
-    const r = await sb.from('fuites')
-      .select('id,reference,adresse,commune,statut,urgence,position,description,lat,lon')
-      .not('lat', 'is', null)
-      .order('id')
-      .range(from, from + PAGE - 1);
-    if (r.error || !r.data) break;
-    fuites = fuites.concat(r.data);
-    if (r.data.length < PAGE) break;
-    from += PAGE;
-  }
+  // Groupe de clusters — une seule instance, réutilisée via clearLayers / addLayers
+  clusterGroup = L.markerClusterGroup({
+    maxClusterRadius: 50,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true,
+    chunkedLoading: true,          // améliore la réactivité sur les gros jeux
+    iconCreateFunction(cluster) {
+      const n    = cluster.getChildCount();
+      const size = n < 10 ? 30 : n < 100 ? 38 : 46;
+      const fs   = n < 100 ? '.8rem' : '.68rem';
+      return L.divIcon({
+        html: `<div class="cluster-marker" style="width:${size}px;height:${size}px;font-size:${fs}">${n}</div>`,
+        className: 'cluster-outer',
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2]
+      });
+    }
+  });
+  map.addLayer(clusterGroup);
 
-  const { count: totalCount } = await sb.from('fuites').select('id', { count:'exact', head:true });
-
-  if (!fuites || fuites.length === 0) {
-    document.getElementById('noGpsPanel').style.display = 'block';
-    document.getElementById('noGpsPanel').textContent = 'Aucune fiche avec coordonnées GPS. Ajoutez la position lors de la création.';
+  // Chargement des données (pagination Supabase)
+  try {
+    await loadAllFuites();
+  } catch (err) {
+    document.getElementById('loadingOverlay').innerHTML =
+      `<div style="text-align:center;color:#C0392B;padding:1rem">
+         Erreur de chargement : ${escHtml(err.message || 'erreur réseau')}<br>
+         <button onclick="location.reload()" style="margin-top:.75rem;padding:.4rem .9rem;border:1px solid #C0392B;background:transparent;color:#C0392B;border-radius:6px;cursor:pointer">Réessayer</button>
+       </div>`;
     return;
   }
 
-  // Avertissement si certaines fiches n'ont pas de GPS
-  if (totalCount && fuites.length < totalCount) {
-    document.getElementById('noGpsPanel').style.display = 'block';
+  // Construction unique des marqueurs (icône + popup)
+  buildAllMarkers();
+
+  // Peuplement des selects à partir des données
+  populateFilters();
+
+  // Événements filtres
+  document.getElementById('fCommune').addEventListener('change', e => { fCommune = e.target.value; applyFilters(true); });
+  document.getElementById('fAnnee')  .addEventListener('change', e => { fAnnee   = e.target.value; applyFilters(false); });
+  document.getElementById('fType')   .addEventListener('change', e => { fType    = e.target.value; applyFilters(false); });
+  document.getElementById('fUrgence').addEventListener('change', e => { fUrgence = e.target.value; applyFilters(false); });
+  document.getElementById('btnReset').addEventListener('click', resetFilters);
+
+  // Affichage initial (fitBounds sur l'ensemble)
+  applyFilters(true);
+
+  document.getElementById('loadingOverlay').classList.add('hidden');
+})();
+
+// ── Chargement paginé ─────────────────────────────────────────────────
+async function loadAllFuites() {
+  const PAGE = 1000;
+  let from = 0;
+  while (true) {
+    const r = await sb.from('fuites')
+      .select('id,reference,adresse,commune,statut,urgence,type_fuite,position,description,lat,lon,date_detection,created_at')
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (r.error) throw new Error(r.error.message);
+    if (!r.data || r.data.length === 0) break;
+    allFuites = allFuites.concat(r.data);
+    if (r.data.length < PAGE) break;
+    from += PAGE;
   }
+}
 
-  const colorMap = { critique:'#DC2626', urgente:'#D97706', normale:'#0C5E8A', resolu:'#1A7A45', ferme:'#9CA3AF' };
-  const bounds = [];
+// ── Construction des marqueurs (une seule fois) ───────────────────────
+function buildAllMarkers() {
+  allMarkers = [];
+  allFuites.forEach(f => {
+    const lat = parseFloat(f.lat), lng = parseFloat(f.lon);
+    if (!f.lat || !f.lon || isNaN(lat) || isNaN(lng)) return;
 
-  fuites.forEach(f => {
-    const lat = parseFloat(f.lat);
-    const lng = parseFloat(f.lon);
-    if (isNaN(lat) || isNaN(lng)) return;
+    const color   = f.statut === 'resolu' ? '#1A7A45'
+                  : f.statut === 'ferme'  ? '#9CA3AF'
+                  : COLOR_MAP[f.urgence]  || '#0C5E8A';
+    const opacity = f.statut === 'ferme' ? 0.4 : 1;
+    const size    = f.urgence === 'critique' ? 14 : f.urgence === 'urgente' ? 12 : 10;
 
-    bounds.push([lat, lng]);
-
-    const color = f.statut === 'resolu' || f.statut === 'ferme'
-      ? colorMap[f.statut]
-      : colorMap[f.urgence] || '#0C5E8A';
-
-    const marker = L.circleMarker([lat, lng], {
-      radius: f.urgence === 'critique' ? 12 : f.urgence === 'urgente' ? 10 : 8,
-      fillColor: color,
-      color: '#fff',
-      weight: 2,
-      opacity: 1,
-      fillOpacity: f.statut === 'ferme' ? 0.4 : 0.85
+    const marker = L.marker([lat, lng], {
+      icon: L.divIcon({
+        html: `<div class="map-pin" style="width:${size}px;height:${size}px;background:${color};opacity:${opacity}"></div>`,
+        className: '',
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, -(size / 2 + 4)]
+      })
     });
 
+    // Popup
+    const year      = getYear(f);
     const statBadge = { nouveau:'pb-nou', en_cours:'pb-enc', resolu:'pb-res', ferme:'pb-fer' }[f.statut] || '';
     const urgBadge  = { normale:'pb-nor', urgente:'pb-urg', critique:'pb-cri' }[f.urgence] || '';
-    const posLabel  = f.position === 'avant_compteur' ? 'Avant cpt' : 'Après cpt';
+    const posLabel  = f.position === 'avant_compteur' ? 'Av. cpt' : f.position === 'apres_compteur' ? 'Ap. cpt' : '';
+    const typeLabel = f.type_fuite ? (TYPE_LABELS[f.type_fuite] || f.type_fuite) : '';
 
     marker.bindPopup(`
       <div class="popup-inner">
         <div class="popup-ref">${f.reference || '—'}</div>
-        <div class="popup-addr">${f.adresse || ''}${f.commune ? ', '+f.commune : ''}</div>
+        <div class="popup-addr">${escHtml(f.adresse || '')}${f.commune ? ', ' + escHtml(f.commune) : ''}</div>
         <div class="popup-badges">
           <span class="popup-badge ${urgBadge}">${f.urgence}</span>
-          <span class="popup-badge ${statBadge}">${f.statut.replace('_',' ')}</span>
-          <span class="popup-badge pb-nou" style="background:#e8f4f8;color:#555">${posLabel}</span>
+          <span class="popup-badge ${statBadge}">${stTxt(f.statut)}</span>
+          ${posLabel ? `<span class="popup-badge pb-pos">${posLabel}</span>` : ''}
+          ${year     ? `<span class="popup-badge pb-nor">${year}</span>` : ''}
         </div>
+        ${typeLabel ? `<div class="popup-type">${typeLabel}</div>` : ''}
         ${f.description ? `<div class="popup-desc">${escHtml(f.description)}</div>` : ''}
         <button class="popup-btn" onclick="window.location.href='./fiches.html'">Voir les fiches →</button>
       </div>
     `, { maxWidth: 280 });
 
-    marker.addTo(map);
+    allMarkers.push({ marker, fuite: f });
+  });
+}
+
+// ── Peuplement des selects ────────────────────────────────────────────
+function populateFilters() {
+  // Communes (tri alphabétique, valeurs présentes dans la base)
+  const communes = [...new Set(allFuites.map(f => f.commune).filter(Boolean))].sort();
+  const selC = document.getElementById('fCommune');
+  selC.innerHTML = '<option value="">Toutes les communes</option>'
+    + communes.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  // Années (décroissant, basé sur date_detection || created_at)
+  const annees = [...new Set(allFuites.map(getYear).filter(Boolean))].sort().reverse();
+  const selA = document.getElementById('fAnnee');
+  selA.innerHTML = '<option value="">Toutes les années</option>'
+    + annees.map(a => `<option value="${a}">${a}</option>`).join('');
+
+  // Types (liste fixe connue + traduction)
+  const selT = document.getElementById('fType');
+  selT.innerHTML = '<option value="">Tous les types</option>'
+    + Object.entries(TYPE_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+}
+
+// ── Application des filtres ───────────────────────────────────────────
+function applyFilters(fitBounds) {
+  // Filtrage (tous en AND)
+  let filtered = allFuites;
+  if (fCommune) filtered = filtered.filter(f => f.commune    === fCommune);
+  if (fAnnee)   filtered = filtered.filter(f => getYear(f)   === fAnnee);
+  if (fType)    filtered = filtered.filter(f => f.type_fuite === fType);
+  if (fUrgence) filtered = filtered.filter(f => f.urgence    === fUrgence);
+
+  const filteredIds = new Set(filtered.map(f => f.id));
+  const visible     = allMarkers.filter(({ fuite }) => filteredIds.has(fuite.id));
+  const noGPS       = filtered.length - visible.length;
+
+  // Mise à jour du cluster : clearLayers + addLayers (batch optimisé)
+  clusterGroup.clearLayers();
+  if (visible.length > 0) {
+    clusterGroup.addLayers(visible.map(({ marker }) => marker));
+  }
+
+  // Ajustement de la vue
+  if (fitBounds && visible.length > 0) {
+    const coords = visible.map(({ marker }) => marker.getLatLng());
+    if (coords.length === 1) map.setView(coords[0], 16);
+    else map.fitBounds(L.latLngBounds(coords), { padding: [40, 40], maxZoom: 16 });
+  }
+
+  // Compteur
+  const countEl = document.getElementById('countLabel');
+  countEl.innerHTML = `<strong>${filtered.length}</strong> fiche${filtered.length > 1 ? 's' : ''}`
+    + (noGPS ? ` <span style="opacity:.65">(${noGPS} sans GPS)</span>` : '');
+
+  // Bouton reset
+  const hasFilter = fCommune || fAnnee || fType || fUrgence;
+  document.getElementById('btnReset').classList.toggle('has-filter', !!hasFilter);
+
+  // Highlight des selects actifs
+  ['fCommune', 'fAnnee', 'fType', 'fUrgence'].forEach(id => {
+    document.getElementById(id).classList.toggle('active', !!document.getElementById(id).value);
   });
 
-  if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
-  else if (bounds.length === 1) map.setView(bounds[0], 15);
-})();
+  // Panneau synthèse
+  updateSynthese(filtered);
 
+  // Panneau sans-GPS
+  const ngp = document.getElementById('noGpsPanel');
+  if (noGPS > 0) {
+    ngp.style.display = 'block';
+    ngp.textContent   = `${noGPS} fiche${noGPS > 1 ? 's' : ''} sans GPS non affichée${noGPS > 1 ? 's' : ''}`;
+  } else {
+    ngp.style.display = 'none';
+  }
+}
+
+// ── Panneau synthèse ──────────────────────────────────────────────────
+function updateSynthese(filtered) {
+  const panel     = document.getElementById('synthesePanel');
+  const hasFilter = fCommune || fAnnee || fType || fUrgence;
+
+  if (!hasFilter || filtered.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  // Titre à partir des filtres actifs
+  const parts = [];
+  if (fCommune) parts.push(fCommune.toUpperCase());
+  if (fAnnee)   parts.push(fAnnee);
+  if (fType)    parts.push(TYPE_LABELS[fType] || fType);
+  if (fUrgence) parts.push(fUrgence.charAt(0).toUpperCase() + fUrgence.slice(1));
+
+  // Comptage par catégorie
+  const cnt = { critique:0, urgente:0, normale:0, resolu:0, ferme:0 };
+  filtered.forEach(f => {
+    if (f.statut === 'resolu')     cnt.resolu++;
+    else if (f.statut === 'ferme') cnt.ferme++;
+    else                           cnt[f.urgence] = (cnt[f.urgence] || 0) + 1;
+  });
+
+  const rows = [
+    cnt.critique ? `<div class="syn-row"><div class="syn-dot" style="background:#DC2626"></div>${cnt.critique} critique${cnt.critique > 1 ? 's' : ''}</div>` : '',
+    cnt.urgente  ? `<div class="syn-row"><div class="syn-dot" style="background:#D97706"></div>${cnt.urgente} urgente${cnt.urgente > 1 ? 's' : ''}</div>` : '',
+    cnt.normale  ? `<div class="syn-row"><div class="syn-dot" style="background:#0C5E8A"></div>${cnt.normale} normale${cnt.normale > 1 ? 's' : ''}</div>` : '',
+    cnt.resolu   ? `<div class="syn-row"><div class="syn-dot" style="background:#1A7A45"></div>${cnt.resolu} résolue${cnt.resolu > 1 ? 's' : ''}</div>` : '',
+    cnt.ferme    ? `<div class="syn-row"><div class="syn-dot" style="background:#9CA3AF"></div>${cnt.ferme} fermée${cnt.ferme > 1 ? 's' : ''}</div>` : '',
+  ].filter(Boolean).join('');
+
+  panel.innerHTML = `
+    <div class="syn-title">${parts.join(' · ')}</div>
+    <div class="syn-count">${filtered.length}</div>
+    <div class="syn-unit">fiche${filtered.length > 1 ? 's' : ''}</div>
+    ${rows}
+  `;
+  panel.style.display = 'block';
+}
+
+// ── Réinitialisation ──────────────────────────────────────────────────
+function resetFilters() {
+  fCommune = ''; fAnnee = ''; fType = ''; fUrgence = '';
+  ['fCommune', 'fAnnee', 'fType', 'fUrgence'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = '';
+    el.classList.remove('active');
+  });
+  applyFilters(true);
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────
+function getYear(f) {
+  const d = f.date_detection || f.created_at;
+  return d ? String(new Date(d).getFullYear()) : null;
+}
 function escHtml(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function stTxt(s) {
+  return String(s || '—').replace(/_/g, ' ');
 }
 </script>
 </body>
