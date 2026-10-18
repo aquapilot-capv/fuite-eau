@@ -602,6 +602,34 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
 .btn-action:disabled { opacity: .5; cursor: default; }
 .btn-action svg { width: 15px; height: 15px; }
 .btn-action.btn-danger:hover:not(:disabled) { border-color: var(--error); color: var(--error); }
+
+/* ── Photos ── */
+.photo-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: .45rem; margin-top: .35rem;
+}
+.photo-item {
+  position: relative; aspect-ratio: 4/3;
+  border-radius: 8px; overflow: hidden;
+  background: var(--bg); border: 1px solid var(--border);
+  cursor: zoom-in;
+}
+.photo-item img { width: 100%; height: 100%; object-fit: cover; transition: opacity .15s; }
+.photo-item:hover img { opacity: .85; }
+.photo-del {
+  position: absolute; top: .3rem; right: .3rem;
+  width: 22px; height: 22px;
+  background: rgba(0,0,0,.55); border: none; border-radius: 50%;
+  color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; line-height: 1; transition: background .15s;
+}
+.photo-del:hover { background: rgba(192,57,43,.85); }
+.photo-uploading {
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 4/3; border-radius: 8px;
+  border: 1.5px dashed var(--border);
+  font-size: .75rem; color: var(--muted);
+}
 </style>
 </head>
 <body>
@@ -997,8 +1025,9 @@ let myRole = '', myEmail = '';
   const { data: p } = await sb.from('fuites_profils').select('role,actif').eq('id', session.user.id).single();
   if (!p || !p.actif) { await sb.auth.signOut(); window.location.replace('./index.html'); return; }
 
-  myRole  = p.role;
-  myEmail = session.user.email;
+  myRole   = p.role;
+  myEmail  = session.user.email;
+  myUserId = session.user.id;
   try { sessionStorage.setItem('fe_role', myRole); } catch {}
 
   // Affichage user
@@ -1323,8 +1352,9 @@ let currentFicheId = null;
 let currentFiche   = null;
 let currentHist    = [];
 // Mode édition : réutilise la modale de création avec UPDATE au lieu d'INSERT
-let editMode = false;
-let editId   = null;
+let editMode  = false;
+let editId    = null;
+let myUserId  = '';
 
 async function openDetail(id) {
   try { await openDetailInner(id); }
@@ -1383,6 +1413,7 @@ async function openDetailInner(id) {
       </div>
     </div>`).join('') : '<div style="font-size:.82rem;color:var(--muted)">Aucune modification enregistrée.</div>';
 
+  // Rendu — loadPhotos() appelé juste après (la grille est déjà dans le DOM)
   document.getElementById('detailContent').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
       <div>
@@ -1441,6 +1472,25 @@ async function openDetailInner(id) {
       </div>
     </div>
 
+    <div class="detail-section">
+      <h3>Photos <span id="photoCount" style="font-size:.75rem;font-weight:400;color:var(--muted)">(chargement…)</span></h3>
+      <div class="photo-grid" id="photoGrid">
+        <div class="photo-uploading">Chargement…</div>
+      </div>
+      ${canEdit ? `
+      <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" onchange="uploadPhoto(this)">
+      <button class="btn-action" id="btnAddPhoto"
+        onclick="document.getElementById('photoInput').click()"
+        style="margin-top:.45rem;max-width:160px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        Ajouter photo
+      </button>
+      <div class="form-msg" id="photoMsg" style="display:none;margin-top:.3rem"></div>` : ''}
+    </div>
+
     ${f.recommandation ? `<div class="detail-section"><h3>Recommandation</h3><div class="detail-desc">${escHtml(f.recommandation)}</div></div>` : ''}
 
     ${f.commentaire ? `<div class="detail-section"><h3>Commentaire</h3><div class="detail-desc">${escHtml(f.commentaire)}</div></div>` : ''}
@@ -1488,6 +1538,9 @@ async function openDetailInner(id) {
       </button>` : ''}
     </div>
   `;
+
+  // Charger les photos maintenant que le DOM est prêt
+  loadPhotos(id);
 }
 
 async function changeStatut(id, nouveauStatut) {
@@ -1758,6 +1811,131 @@ function generatePDF() {
   }
 
   doc.save(`fiche-fuite-${(f.reference || 'sans-ref').replace(/[^A-Z0-9-]/gi, '_')}.pdf`);
+}
+
+// ── Photos ──────────────────────────────────────────────────────
+// Compression côté client : max 1600 px, JPEG 0,75
+async function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objUrl = URL.createObjectURL(file);
+    img.onerror = () => { URL.revokeObjectURL(objUrl); reject(new Error('Image invalide')); };
+    img.onload  = () => {
+      URL.revokeObjectURL(objUrl);
+      const MAX = 1600;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+        else        { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('Compression échouée')), 'image/jpeg', 0.75);
+    };
+    img.src = objUrl;
+  });
+}
+
+async function loadPhotos(ficheId) {
+  const grid    = document.getElementById('photoGrid');
+  const countEl = document.getElementById('photoCount');
+  const btnAdd  = document.getElementById('btnAddPhoto');
+  if (!grid) return;
+
+  const { data: photos, error } = await sb
+    .from('fuites_photos')
+    .select('id, storage_path, created_at')
+    .eq('fuite_id', ficheId)
+    .order('created_at');
+
+  if (error) {
+    grid.innerHTML = `<div style="font-size:.8rem;color:var(--muted)">Erreur : ${escHtml(error.message)}</div>`;
+    return;
+  }
+
+  const n = (photos || []).length;
+  if (countEl) countEl.textContent = `(${n}/4)`;
+  if (btnAdd)  btnAdd.disabled = n >= 4;
+
+  if (n === 0) {
+    grid.innerHTML = '<div style="font-size:.8rem;color:var(--muted)">Aucune photo.</div>';
+    return;
+  }
+
+  // Signed URLs (1 h de validité)
+  const items = await Promise.all((photos || []).map(async p => {
+    const { data } = await sb.storage.from('fuites-photos').createSignedUrl(p.storage_path, 3600);
+    return { ...p, url: data?.signedUrl };
+  }));
+
+  const canDel = myRole === 'superadmin';
+  grid.innerHTML = items.map(p => `
+    <div class="photo-item" title="${escHtml(p.storage_path)}">
+      ${p.url
+        ? `<img src="${escHtml(p.url)}" alt="Photo" onclick="window.open('${escHtml(p.url)}','_blank')">`
+        : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:.75rem;color:var(--muted)">Erreur URL</div>'}
+      ${canDel ? `<button class="photo-del" onclick="deletePhoto('${p.id}','${escHtml(p.storage_path)}')" title="Supprimer">✕</button>` : ''}
+    </div>`).join('');
+}
+
+function showPhotoMsg(text, type) {
+  const el = document.getElementById('photoMsg');
+  if (!el) return;
+  el.textContent = text;
+  el.className   = 'form-msg' + (type ? ' ' + type : '');
+  el.style.display = text ? 'block' : 'none';
+}
+
+async function uploadPhoto(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  input.value = ''; // reset pour re-uploader le même fichier si besoin
+
+  const btn = document.getElementById('btnAddPhoto');
+
+  // Vérification du quota côté client (la RLS double la sécurité côté serveur)
+  const { count } = await sb.from('fuites_photos')
+    .select('id', { count: 'exact', head: true })
+    .eq('fuite_id', currentFicheId);
+  if (count >= 4) { showPhotoMsg('Maximum 4 photos par fiche.', 'error'); return; }
+
+  btn.disabled = true;
+  showPhotoMsg('Compression…', '');
+
+  let blob;
+  try { blob = await compressImage(file); }
+  catch (e) { showPhotoMsg('Compression : ' + e.message, 'error'); btn.disabled = false; return; }
+
+  const path = `${currentFicheId}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+  showPhotoMsg('Upload…', '');
+
+  const { error: upErr } = await sb.storage.from('fuites-photos').upload(path, blob, { contentType: 'image/jpeg' });
+  if (upErr) { showPhotoMsg('Upload : ' + upErr.message, 'error'); btn.disabled = false; return; }
+
+  const { error: dbErr } = await sb.from('fuites_photos').insert({
+    fuite_id:     currentFicheId,
+    storage_path: path,
+    created_by:   myUserId || null,
+  });
+  if (dbErr) {
+    await sb.storage.from('fuites-photos').remove([path]); // rollback storage
+    showPhotoMsg('Enregistrement : ' + dbErr.message, 'error');
+    btn.disabled = false;
+    return;
+  }
+
+  showPhotoMsg('', '');
+  loadPhotos(currentFicheId);
+}
+
+async function deletePhoto(photoId, storagePath) {
+  if (!confirm('Supprimer cette photo ?')) return;
+  await Promise.all([
+    sb.storage.from('fuites-photos').remove([storagePath]),
+    sb.from('fuites_photos').delete().eq('id', photoId),
+  ]);
+  loadPhotos(currentFicheId);
 }
 
 // ── Email notification ───────────────────────────────────────────
