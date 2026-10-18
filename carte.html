@@ -170,13 +170,22 @@ let map;
     maxZoom: 19
   }).addTo(map);
 
-  const { data: fuites } = await sb
-    .from('fuites')
-    .select('id,reference,adresse,commune,statut,urgence,position,description,lat,lon')
-    .not('lat', 'is', null)
-    .order('created_at', { ascending: false });
+  // Supabase plafonne chaque requête à 1000 lignes : on pagine (tri sur id, stable)
+  const PAGE = 1000;
+  let fuites = [], from = 0;
+  while (true) {
+    const r = await sb.from('fuites')
+      .select('id,reference,adresse,commune,statut,urgence,position,description,lat,lon')
+      .not('lat', 'is', null)
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (r.error || !r.data) break;
+    fuites = fuites.concat(r.data);
+    if (r.data.length < PAGE) break;
+    from += PAGE;
+  }
 
-  const { data: all } = await sb.from('fuites').select('id', { count:'exact', head:true });
+  const { count: totalCount } = await sb.from('fuites').select('id', { count:'exact', head:true });
 
   if (!fuites || fuites.length === 0) {
     document.getElementById('noGpsPanel').style.display = 'block';
@@ -185,7 +194,7 @@ let map;
   }
 
   // Avertissement si certaines fiches n'ont pas de GPS
-  if (all && fuites.length < (all[0]?.count || 0)) {
+  if (totalCount && fuites.length < totalCount) {
     document.getElementById('noGpsPanel').style.display = 'block';
   }
 

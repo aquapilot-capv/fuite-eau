@@ -838,7 +838,8 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
       <div class="form-cols">
         <div class="form-row">
           <label>Adresse *</label>
-          <input type="text" id="fAdresse" placeholder="12 rue des Alpes" required>
+          <input type="text" id="fAdresse" placeholder="Rue des Alpes (sans numéro)" required>
+          <div style="font-size:.72rem;color:var(--muted);margin-top:.25rem">Rue uniquement, sans numéro : le GPS localise la fuite.</div>
         </div>
         <div class="form-row">
           <label>Commune *</label>
@@ -908,7 +909,7 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
         </div>
         <div class="form-row">
           <label>Intervenant</label>
-          <input type="text" id="fIntervenant" placeholder="Nom de l'agent">
+          <input type="text" id="fIntervenant" placeholder="Initiales (ex. JB)" maxlength="12" autocomplete="off">
         </div>
       </div>
       <div class="form-row">
@@ -926,6 +927,7 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
       <div class="form-row">
         <label>Description *</label>
         <textarea id="fDescription" placeholder="Type de fuite, débit estimé, localisation précise…" required></textarea>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:.25rem">Ni nom, ni téléphone d'abonné ou de riverain.</div>
       </div>
 
       <div class="form-row">
@@ -974,7 +976,8 @@ const SUPABASE_URL  = 'https://nygrwybqyrkqrkmszisv.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55Z3J3eWJxeXJrcXJrbXN6aXN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxNTEyMDIsImV4cCI6MjEwNzcyNzIwMn0.f-mZi4Pyq7Rbh9k1OUvr3ufp77i8xzybub4QO2VNWUM';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const INTERVENANTS = ['Jérémy','Jean-Phi','Agent 3','Agent 4'];
+// Initiales uniquement (minimisation RGPD) — à adapter à l'équipe
+const INTERVENANTS = ['JB','JP','A3','A4'];
 const TYPE_LABELS = { branchement:'Branchement', casse_nette:'Casse nette', raccord:'Raccord / pièce', joint_coule:'Joint coulé', presse_etoupe:'Presse-étoupe', casse_entreprise:'Casse entreprise', vanne:'Vanne', regulation:'Organe de régulation', fissure:'Fissure', corrosion:'Corrosion / perçage', ventouse:'Ventouse', poteau_incendie:'Poteau incendie', compteur:'Compteur', autre:'Autre' };
 const MAT_LABELS  = { fonte:'Fonte grise', fonte_ductile:'Fonte ductile', acier:'Acier', pehd:'PEHD', pvc:'PVC', amiante_ciment:'Amiante-ciment', plomb:'Plomb', cuivre:'Cuivre', autre:'Autre' };
 const CAUSE_LABELS = { vetuste:'Vétusté', corrosion:'Corrosion', joint:'Joint défaillant', choc_tiers:'Choc / travaux tiers', gel:'Gel', mouvement_terrain:'Mouvement de terrain', surpression:'Surpression / coup de bélier', defaut_pose:'Défaut de pose', inconnue:'Inconnue' };
@@ -1086,14 +1089,20 @@ document.getElementById('btnRefresh').addEventListener('click', loadFiches);
 let allFiches = [];
 
 async function loadFiches() {
-  const { data, error } = await sb
-    .from('fuites')
-    .select('*')
-    .order('created_at', { ascending: false });
+  // Supabase plafonne chaque requête à 1000 lignes : on pagine (tri sur id, stable)
+  const PAGE = 1000;
+  let data = [], from = 0, error = null;
+  while (true) {
+    const r = await sb.from('fuites').select('*').order('id').range(from, from + PAGE - 1);
+    if (r.error) { error = r.error; break; }
+    data = data.concat(r.data || []);
+    if (!r.data || r.data.length < PAGE) break;
+    from += PAGE;
+  }
   if (!error) {
     // Tri par date réelle de détection (les fiches importées ont toutes la même created_at)
     const d = f => new Date(f.date_detection || f.created_at).getTime();
-    allFiches = (data || []).sort((a, b) => d(b) - d(a));
+    allFiches = data.sort((a, b) => d(b) - d(a));
     renderFiches();
   }
 }
@@ -1247,7 +1256,10 @@ document.getElementById('createForm').addEventListener('submit', async e => {
   const payload = {
     position:    document.getElementById('fPosition').value,
     urgence:     document.getElementById('fUrgence').value,
-    adresse:     document.getElementById('fAdresse').value.trim(),
+    // Numéro de voirie retiré (même règle que l'historique) ; si la rue devient vide, on garde la saisie
+    adresse:     (document.getElementById('fAdresse').value.trim()
+                   .replace(/^\d+\s*(bis|ter|quater)?[\s,.\-]+/i, '').trim())
+                 || document.getElementById('fAdresse').value.trim(),
     commune:     document.getElementById('fCommune').value.trim(),
     description: document.getElementById('fDescription').value.trim(),
     intervenant: document.getElementById('fIntervenant').value.trim() || null,
@@ -1276,7 +1288,9 @@ document.getElementById('createForm').addEventListener('submit', async e => {
   const { error } = await sb.from('fuites').insert(payload);
 
   if (error) {
-    msg.textContent = error.message;
+    msg.textContent = (error.code === '23505' || /fuites_reference_key/.test(error.message || ''))
+      ? 'Numéro de fiche déjà utilisé : réessaie. Si ça se répète, préviens l\'administrateur (séquence à recaler).'
+      : error.message;
     msg.className = 'form-msg error';
     btn.disabled = false;
     btn.textContent = 'Créer la fiche';
