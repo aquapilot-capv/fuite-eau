@@ -205,6 +205,40 @@ body {
 .leaflet-marker-icon div { cursor:pointer; transition:transform .1s; }
 .leaflet-marker-icon div:hover { transform:scale(1.25); }
 
+/* ── Sélecteur de fond de carte ── */
+.layer-switcher {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .28rem;
+  display: flex;
+  gap: .22rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,.18);
+}
+.ls-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .18rem;
+  padding: .4rem .55rem;
+  border: 1.5px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: .68rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+  min-width: 52px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  line-height: 1;
+}
+.ls-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+.ls-btn:hover { background: var(--bg); color: var(--text); }
+.ls-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.ls-btn.active svg { stroke: #fff; }
+
 /* ── Cluster (override MarkerCluster.Default) ── */
 .marker-cluster       { background:transparent !important; }
 .marker-cluster div   { background:transparent !important; }
@@ -351,6 +385,84 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 const MAP_CENTER = [45.3625, 5.5936];
 const MAP_ZOOM   = 12;
 
+// ── Fonds de carte IGN Géoplateforme (gratuit, sans clé, serveurs France) ────
+const IGN_ATTR = '© <a href="https://www.ign.fr/">IGN</a> / Géoplateforme';
+const IGN_OPTS = { attribution: IGN_ATTR, maxZoom: 19, tileSize: 256 };
+
+const TILE_URLS = {
+  plan:     'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+  ortho:    'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+  cadastre: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+};
+
+let baseLayers    = {};   // plan | ortho
+let cadastreLayer = null; // overlay transparent sur plan
+let activeLayerKey = 'plan';
+
+function initTileLayers() {
+  baseLayers.plan  = L.tileLayer(TILE_URLS.plan,  IGN_OPTS);
+  baseLayers.ortho = L.tileLayer(TILE_URLS.ortho, IGN_OPTS);
+  cadastreLayer    = L.tileLayer(TILE_URLS.cadastre, { ...IGN_OPTS, opacity: 0.65 });
+}
+
+function switchLayer(key) {
+  // Retirer tous les fonds et le cadastre
+  Object.values(baseLayers).forEach(l => { if (map.hasLayer(l)) map.removeLayer(l); });
+  if (map.hasLayer(cadastreLayer)) map.removeLayer(cadastreLayer);
+
+  activeLayerKey = key;
+  // Ajouter fond (cadastre utilise Plan comme base)
+  map.addLayer(key === 'ortho' ? baseLayers.ortho : baseLayers.plan);
+  if (key === 'cadastre') map.addLayer(cadastreLayer);
+
+  // Mettre à jour les boutons
+  document.querySelectorAll('.ls-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.layer === key)
+  );
+}
+
+function createLayerSwitcher() {
+  const Ctrl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const c = L.DomUtil.create('div', 'layer-switcher');
+      L.DomEvent.disableClickPropagation(c);
+      c.innerHTML = `
+        <button class="ls-btn active" data-layer="plan" title="Plan IGN V2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+            <line x1="8" y1="2" x2="8" y2="18"/>
+            <line x1="16" y1="6" x2="16" y2="22"/>
+          </svg>
+          Plan
+        </button>
+        <button class="ls-btn" data-layer="ortho" title="Orthophotographie IGN">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          Ortho
+        </button>
+        <button class="ls-btn" data-layer="cadastre" title="Plan IGN + Cadastre">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <line x1="3" y1="9" x2="21" y2="9"/>
+            <line x1="3" y1="15" x2="21" y2="15"/>
+            <line x1="9" y1="3" x2="9" y2="21"/>
+            <line x1="15" y1="3" x2="15" y2="21"/>
+          </svg>
+          Cadastre
+        </button>
+      `;
+      c.querySelectorAll('.ls-btn').forEach(btn =>
+        btn.addEventListener('click', () => switchLayer(btn.dataset.layer))
+      );
+      return c;
+    }
+  });
+  map.addControl(new Ctrl());
+}
+
 const TYPE_LABELS = {
   branchement:'Branchement', casse_nette:'Casse nette', raccord:'Raccord / pièce',
   joint_coule:'Joint coulé', presse_etoupe:'Presse-étoupe', casse_entreprise:'Casse entreprise',
@@ -375,17 +487,10 @@ let fCommune = '', fAnnee = '', fType = '', fUrgence = '';
 
   // Carte
   map = L.map('map', { center: MAP_CENTER, zoom: MAP_ZOOM });
-  // IGN Géoplateforme — Plan IGN V2 — gratuit, sans clé, serveurs France (data.geopf.fr)
-  L.tileLayer(
-    'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0' +
-    '&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png' +
-    '&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
-    {
-      attribution: '© <a href="https://www.ign.fr/">IGN</a> / Géoplateforme',
-      maxZoom: 19,
-      tileSize: 256
-    }
-  ).addTo(map);
+  // Fonds de carte IGN — initialisés ici, gérés par switchLayer()
+  initTileLayers();
+  baseLayers.plan.addTo(map); // Plan IGN par défaut
+  createLayerSwitcher();
 
   // Groupe de clusters — une seule instance, réutilisée via clearLayers / addLayers
   clusterGroup = L.markerClusterGroup({
@@ -466,8 +571,8 @@ function buildAllMarkers() {
     const isFerme   = f.statut === 'ferme';
     const isResolu  = f.statut === 'resolu';
     const fillColor = isResolu ? '#1A7A45' : COLOR_MAP[f.urgence] || '#0C5E8A';
-    // Tailles augmentées pour la visibilité ; box-sizing:border-box évite le débordement du border
-    const size = f.urgence === 'critique' ? 16 : f.urgence === 'urgente' ? 14 : 12;
+    // Tailles en px (diamètre) — box-sizing:border-box pour que le border reste dans la zone
+    const size = f.urgence === 'critique' ? 24 : f.urgence === 'urgente' ? 20 : 16;
     // fermée = anneau creux : lisible sur tout fond de carte, sans masquer les fiches actives
     const pinHtml = isFerme
       ? `<div style="width:${size}px;height:${size}px;box-sizing:border-box;border-radius:50%;background:transparent;border:2.5px solid #64748B;"></div>`
