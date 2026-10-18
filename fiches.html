@@ -35,7 +35,7 @@
   }
 }
 :root[data-theme="dark"] {
-  --bg:      #0D1B2A; --surface: #162535; --border: #2A3F54;
+  --bg:      #0D1B2A; --surface: #162535; --border: #2F54;
   --primary: #2A8FBF; --primary-h: #3AA0D0;
   --text:    #E2EAF0; --muted: #8BA4BA;
   --shadow:  0 2px 12px rgba(0,0,0,.4);
@@ -406,7 +406,7 @@ tbody tr.row-critique td:first-child { border-left: 3px solid #DC2626; }
 tbody tr.row-urgente  td:first-child { border-left: 3px solid #D97706; }
 tbody tr.row-normale  td:first-child { border-left: 3px solid #0C5E8A; }
 tbody tr.row-resolu   td:first-child { border-left: 3px solid #1A7A45; }
-tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
+tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CAF; }
 
 /* Empty */
 .empty-row td {
@@ -676,7 +676,7 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
       <div class="sidebar-section-label" style="margin-top:.3rem">Urgence</div>
 
       <button class="filter-item active" data-filter-side="urgence" data-val="">
-        <span class="fi-dot" style="background:#9CA3AF"></span>
+        <span class="fi-dot" style="background:#9CAF"></span>
         <span class="fi-label">Toutes</span>
       </button>
       <button class="filter-item" data-filter-side="urgence" data-val="critique">
@@ -977,7 +977,7 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // Initiales uniquement (minimisation RGPD) — à adapter à l'équipe
-const INTERVENANTS = ['JB','JP','A3','A4'];
+const INTERVENANTS = ['PA','WI','VonRoll','Ax'Eau'];
 const TYPE_LABELS = { branchement:'Branchement', casse_nette:'Casse nette', raccord:'Raccord / pièce', joint_coule:'Joint coulé', presse_etoupe:'Presse-étoupe', casse_entreprise:'Casse entreprise', vanne:'Vanne', regulation:'Organe de régulation', fissure:'Fissure', corrosion:'Corrosion / perçage', ventouse:'Ventouse', poteau_incendie:'Poteau incendie', compteur:'Compteur', autre:'Autre' };
 const MAT_LABELS  = { fonte:'Fonte grise', fonte_ductile:'Fonte ductile', acier:'Acier', pehd:'PEHD', pvc:'PVC', amiante_ciment:'Amiante-ciment', plomb:'Plomb', cuivre:'Cuivre', autre:'Autre' };
 const CAUSE_LABELS = { vetuste:'Vétusté', corrosion:'Corrosion', joint:'Joint défaillant', choc_tiers:'Choc / travaux tiers', gel:'Gel', mouvement_terrain:'Mouvement de terrain', surpression:'Surpression / coup de bélier', defaut_pose:'Défaut de pose', inconnue:'Inconnue' };
