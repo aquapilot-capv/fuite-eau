@@ -201,15 +201,9 @@ body {
 }
 .popup-btn:hover { background:#0A4D72; }
 
-/* ── Marqueur ponctuel ── */
-.map-pin {
-  border-radius:50%;
-  border:2px solid rgba(255,255,255,.9);
-  box-shadow:0 1px 5px rgba(0,0,0,.4);
-  cursor:pointer;
-  transition:transform .1s;
-}
-.map-pin:hover { transform:scale(1.25); }
+/* ── Marqueur ponctuel — styles portés en inline dans le JS, hover via sélecteur générique ── */
+.leaflet-marker-icon div { cursor:pointer; transition:transform .1s; }
+.leaflet-marker-icon div:hover { transform:scale(1.25); }
 
 /* ── Cluster (override MarkerCluster.Default) ── */
 .marker-cluster       { background:transparent !important; }
@@ -341,7 +335,7 @@ body {
   <div class="legend-item"><div class="legend-dot" style="background:#D97706"></div>Urgente</div>
   <div class="legend-item"><div class="legend-dot" style="background:#0C5E8A"></div>Normale</div>
   <div class="legend-item"><div class="legend-dot" style="background:#1A7A45"></div>Résolue</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#9CA3AF"></div>Fermée</div>
+  <div class="legend-item"><div style="width:10px;height:10px;border-radius:50%;border:2px solid #64748B;flex-shrink:0"></div>Fermée</div>
 </div>
 
 <div class="synthese-panel" id="synthesePanel"></div>
@@ -462,15 +456,19 @@ function buildAllMarkers() {
     const lat = parseFloat(f.lat), lng = parseFloat(f.lon);
     if (!f.lat || !f.lon || isNaN(lat) || isNaN(lng)) return;
 
-    const color   = f.statut === 'resolu' ? '#1A7A45'
-                  : f.statut === 'ferme'  ? '#9CA3AF'
-                  : COLOR_MAP[f.urgence]  || '#0C5E8A';
-    const opacity = f.statut === 'ferme' ? 0.4 : 1;
-    const size    = f.urgence === 'critique' ? 14 : f.urgence === 'urgente' ? 12 : 10;
+    const isFerme   = f.statut === 'ferme';
+    const isResolu  = f.statut === 'resolu';
+    const fillColor = isResolu ? '#1A7A45' : COLOR_MAP[f.urgence] || '#0C5E8A';
+    // Tailles augmentées pour la visibilité ; box-sizing:border-box évite le débordement du border
+    const size = f.urgence === 'critique' ? 16 : f.urgence === 'urgente' ? 14 : 12;
+    // fermée = anneau creux : lisible sur tout fond de carte, sans masquer les fiches actives
+    const pinHtml = isFerme
+      ? `<div style="width:${size}px;height:${size}px;box-sizing:border-box;border-radius:50%;background:transparent;border:2.5px solid #64748B;"></div>`
+      : `<div style="width:${size}px;height:${size}px;box-sizing:border-box;border-radius:50%;background:${fillColor};border:2px solid rgba(255,255,255,.95);box-shadow:0 1px 8px rgba(0,0,0,.5);"></div>`;
 
     const marker = L.marker([lat, lng], {
       icon: L.divIcon({
-        html: `<div class="map-pin" style="width:${size}px;height:${size}px;background:${color};opacity:${opacity}"></div>`,
+        html: pinHtml,
         className: '',
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
