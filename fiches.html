@@ -977,7 +977,7 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // Initiales uniquement (minimisation RGPD) — à adapter à l'équipe
-const INTERVENANTS = ['PA','WI','VonRoll','Ax'Eau'];
+const INTERVENANTS = ['PA','WI','VonRoll','AxEau'];
 const TYPE_LABELS = { branchement:'Branchement', casse_nette:'Casse nette', raccord:'Raccord / pièce', joint_coule:'Joint coulé', presse_etoupe:'Presse-étoupe', casse_entreprise:'Casse entreprise', vanne:'Vanne', regulation:'Organe de régulation', fissure:'Fissure', corrosion:'Corrosion / perçage', ventouse:'Ventouse', poteau_incendie:'Poteau incendie', compteur:'Compteur', autre:'Autre' };
 const MAT_LABELS  = { fonte:'Fonte grise', fonte_ductile:'Fonte ductile', acier:'Acier', pehd:'PEHD', pvc:'PVC', amiante_ciment:'Amiante-ciment', plomb:'Plomb', cuivre:'Cuivre', autre:'Autre' };
 const CAUSE_LABELS = { vetuste:'Vétusté', corrosion:'Corrosion', joint:'Joint défaillant', choc_tiers:'Choc / travaux tiers', gel:'Gel', mouvement_terrain:'Mouvement de terrain', surpression:'Surpression / coup de bélier', defaut_pose:'Défaut de pose', inconnue:'Inconnue' };
