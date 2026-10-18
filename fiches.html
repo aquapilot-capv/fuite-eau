@@ -977,7 +977,7 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // Initiales uniquement (minimisation RGPD) — à adapter à l'équipe
-const INTERVENANTS = ['PA','WI','VonRoll','Ax'Eau'];
+const INTERVENANTS = ['JB','JP','A3','A4'];
 const TYPE_LABELS = { branchement:'Branchement', casse_nette:'Casse nette', raccord:'Raccord / pièce', joint_coule:'Joint coulé', presse_etoupe:'Presse-étoupe', casse_entreprise:'Casse entreprise', vanne:'Vanne', regulation:'Organe de régulation', fissure:'Fissure', corrosion:'Corrosion / perçage', ventouse:'Ventouse', poteau_incendie:'Poteau incendie', compteur:'Compteur', autre:'Autre' };
 const MAT_LABELS  = { fonte:'Fonte grise', fonte_ductile:'Fonte ductile', acier:'Acier', pehd:'PEHD', pvc:'PVC', amiante_ciment:'Amiante-ciment', plomb:'Plomb', cuivre:'Cuivre', autre:'Autre' };
 const CAUSE_LABELS = { vetuste:'Vétusté', corrosion:'Corrosion', joint:'Joint défaillant', choc_tiers:'Choc / travaux tiers', gel:'Gel', mouvement_terrain:'Mouvement de terrain', surpression:'Surpression / coup de bélier', defaut_pose:'Défaut de pose', inconnue:'Inconnue' };
@@ -1149,7 +1149,7 @@ function renderFiches() {
       <td>${typeLabel}</td>
       <td class="td-date">${reseauStr(f)}</td>
       <td><span class="badge ${urgBadge[f.urgence]||''}">${f.urgence}</span></td>
-      <td><span class="badge ${statBadge[f.statut]||''}">${f.statut.replace('_',' ')}</span></td>
+      <td><span class="badge ${statBadge[f.statut]||''}">${stTxt(f.statut)}</span></td>
       <td class="td-intervenant">${escHtml(f.intervenant || '—')}</td>
     </tr>`;
   }).join('');
@@ -1312,6 +1312,18 @@ let currentFiche   = null;
 let currentHist    = [];
 
 async function openDetail(id) {
+  // Un échec d'affichage ne doit jamais laisser « Chargement… » à l'écran
+  try { await openDetailInner(id); }
+  catch (e) {
+    console.error('openDetail', e);
+    document.getElementById('detailContent').innerHTML =
+      '<div class="loader-wrap">Erreur d\'affichage : ' + escHtml(e && e.message ? e.message : String(e)) + '</div>';
+  }
+}
+
+const stTxt = s => String(s == null || s === '' ? '—' : s).replace(/_/g, ' ');
+
+async function openDetailInner(id) {
   currentFicheId = id;
   document.getElementById('detailOverlay').hidden = false;
   document.getElementById('detailContent').innerHTML = '<div class="loader-wrap">Chargement…</div>';
@@ -1352,7 +1364,7 @@ async function openDetail(id) {
     <div class="histoline">
       <div class="histoline-dot"></div>
       <div class="histoline-content">
-        <div class="histoline-statut">${h.statut_apres.replace('_',' ')} ← ${h.statut_avant.replace('_',' ')}</div>
+        <div class="histoline-statut">${stTxt(h.nouveau_statut)} ← ${stTxt(h.ancien_statut)}</div>
         <div class="histoline-meta">${h.commentaire ? escHtml(h.commentaire)+' · ' : ''}${date(h.created_at)}</div>
       </div>
     </div>`).join('') : '<div style="font-size:.82rem;color:var(--muted)">Aucune modification enregistrée.</div>';
@@ -1373,7 +1385,7 @@ async function openDetail(id) {
     <div class="badges" style="margin-bottom:.85rem;gap:.4rem">
       <span class="badge ${posBadge}">${posLabel}</span>
       <span class="badge ${{ normale:'badge-nor', urgente:'badge-urg', critique:'badge-cri' }[f.urgence]}">${f.urgence}</span>
-      <span class="badge ${{ nouveau:'badge-nou', en_cours:'badge-enc', resolu:'badge-res', ferme:'badge-fer' }[f.statut]}" id="currentStatutBadge">${f.statut.replace('_',' ')}</span>
+      <span class="badge ${{ nouveau:'badge-nou', en_cours:'badge-enc', resolu:'badge-res', ferme:'badge-fer' }[f.statut]}" id="currentStatutBadge">${stTxt(f.statut)}</span>
       ${f.type_fuite ? `<span class="badge" style="background:#F0FDF4;color:#166534">${typeStr}</span>` : ''}
       ${flags.map(x => `<span class="badge flag">${x}</span>`).join('')}
       ${f.alerte_6h_envoyee ? '<span class="badge badge-ale">⚠ Alerte 6h envoyée</span>' : ''}
@@ -1610,7 +1622,7 @@ function generatePDF() {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       doc.setTextColor(...DARK);
-      doc.text(`${h.statut_avant.replace('_',' ')}  →  ${h.statut_apres.replace('_',' ')}`, M + 3, y + 2);
+      doc.text(`${stTxt(h.ancien_statut)}  →  ${stTxt(h.nouveau_statut)}`, M + 3, y + 2);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(...MUTED);
