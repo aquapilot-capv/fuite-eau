@@ -35,7 +35,7 @@
   }
 }
 :root[data-theme="dark"] {
-  --bg:      #0D1B2A; --surface: #162535; --border: #2F54;
+  --bg:      #0D1B2A; --surface: #162535; --border: #2A3F54;
   --primary: #2A8FBF; --primary-h: #3AA0D0;
   --text:    #E2EAF0; --muted: #8BA4BA;
   --shadow:  0 2px 12px rgba(0,0,0,.4);
@@ -406,7 +406,7 @@ tbody tr.row-critique td:first-child { border-left: 3px solid #DC2626; }
 tbody tr.row-urgente  td:first-child { border-left: 3px solid #D97706; }
 tbody tr.row-normale  td:first-child { border-left: 3px solid #0C5E8A; }
 tbody tr.row-resolu   td:first-child { border-left: 3px solid #1A7A45; }
-tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CAF; }
+tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
 
 /* Empty */
 .empty-row td {
@@ -601,6 +601,7 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CAF; }
 .btn-action:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
 .btn-action:disabled { opacity: .5; cursor: default; }
 .btn-action svg { width: 15px; height: 15px; }
+.btn-action.btn-danger:hover:not(:disabled) { border-color: var(--error); color: var(--error); }
 </style>
 </head>
 <body>
@@ -676,7 +677,7 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CAF; }
       <div class="sidebar-section-label" style="margin-top:.3rem">Urgence</div>
 
       <button class="filter-item active" data-filter-side="urgence" data-val="">
-        <span class="fi-dot" style="background:#9CAF"></span>
+        <span class="fi-dot" style="background:#9CA3AF"></span>
         <span class="fi-label">Toutes</span>
       </button>
       <button class="filter-item" data-filter-side="urgence" data-val="critique">
@@ -807,7 +808,7 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CAF; }
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title">
-      Nouvelle fiche fuite
+      <span id="createModalTitle">Nouvelle fiche fuite</span>
       <button class="modal-close" id="btnCloseCreate">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <path d="M18 6L6 18M6 6l12 12"/>
@@ -977,7 +978,7 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // Initiales uniquement (minimisation RGPD) — à adapter à l'équipe
-const INTERVENANTS = ['PA','WI','VonRoll','AxEau'];
+const INTERVENANTS = ['JB','JP','A3','A4'];
 const TYPE_LABELS = { branchement:'Branchement', casse_nette:'Casse nette', raccord:'Raccord / pièce', joint_coule:'Joint coulé', presse_etoupe:'Presse-étoupe', casse_entreprise:'Casse entreprise', vanne:'Vanne', regulation:'Organe de régulation', fissure:'Fissure', corrosion:'Corrosion / perçage', ventouse:'Ventouse', poteau_incendie:'Poteau incendie', compteur:'Compteur', autre:'Autre' };
 const MAT_LABELS  = { fonte:'Fonte grise', fonte_ductile:'Fonte ductile', acier:'Acier', pehd:'PEHD', pvc:'PVC', amiante_ciment:'Amiante-ciment', plomb:'Plomb', cuivre:'Cuivre', autre:'Autre' };
 const CAUSE_LABELS = { vetuste:'Vétusté', corrosion:'Corrosion', joint:'Joint défaillant', choc_tiers:'Choc / travaux tiers', gel:'Gel', mouvement_terrain:'Mouvement de terrain', surpression:'Surpression / coup de bélier', defaut_pose:'Défaut de pose', inconnue:'Inconnue' };
@@ -1223,9 +1224,10 @@ document.getElementById('btnCreate').addEventListener('click', openCreateModal);
 document.getElementById('btnCreateSide').addEventListener('click', openCreateModal);
 document.getElementById('btnCloseCreate').addEventListener('click', () => {
   document.getElementById('createOverlay').hidden = true;
+  resetEditMode();
 });
 document.getElementById('createOverlay').addEventListener('click', e => {
-  if (e.target === e.currentTarget) e.currentTarget.hidden = true;
+  if (e.target === e.currentTarget) { e.currentTarget.hidden = true; resetEditMode(); }
 });
 
 document.getElementById('btnGeo').addEventListener('click', () => {
@@ -1248,6 +1250,7 @@ document.getElementById('createForm').addEventListener('submit', async e => {
   const lng = parseFloat(document.getElementById('fLng').value) || null;
 
   const payload = {
+    // statut ajouté conditionnellement plus bas (pas écrasé en mode édition)
     position:    document.getElementById('fPosition').value,
     urgence:     document.getElementById('fUrgence').value,
     adresse:     (document.getElementById('fAdresse').value.trim()
@@ -1275,18 +1278,26 @@ document.getElementById('createForm').addEventListener('submit', async e => {
     recommandation: document.getElementById('fRecommandation').value.trim() || null,
     lat:         lat || null,
     lon:         lng || null,
-    statut:      'nouveau',
   };
 
-  const { error } = await sb.from('fuites').insert(payload);
+  let dbErr;
+  if (editMode) {
+    // Pas de statut écrasé — changé par les boutons dédiés
+    const { error } = await sb.from('fuites').update(payload).eq('id', editId);
+    dbErr = error;
+  } else {
+    payload.statut = 'nouveau';
+    const { error } = await sb.from('fuites').insert(payload);
+    dbErr = error;
+  }
 
-  if (error) {
-    msg.textContent = (error.code === '23505' || /fuites_reference_key/.test(error.message || ''))
+  if (dbErr) {
+    msg.textContent = (!editMode && (dbErr.code === '23505' || /fuites_reference_key/.test(dbErr.message || '')))
       ? 'Numéro de fiche déjà utilisé : réessaie. Si ça se répète, préviens l\'administrateur (séquence à recaler).'
-      : error.message;
+      : dbErr.message;
     msg.className = 'form-msg error';
     btn.disabled = false;
-    btn.textContent = 'Créer la fiche';
+    btn.textContent = editMode ? 'Enregistrer' : 'Créer la fiche';
     return;
   }
 
@@ -1296,6 +1307,7 @@ document.getElementById('createForm').addEventListener('submit', async e => {
   document.querySelectorAll('.intervenant-btn').forEach(b => b.classList.remove('active'));
   btn.disabled = false;
   btn.textContent = 'Créer la fiche';
+  resetEditMode();
   loadFiches();
 });
 
@@ -1303,6 +1315,9 @@ document.getElementById('createForm').addEventListener('submit', async e => {
 let currentFicheId = null;
 let currentFiche   = null;
 let currentHist    = [];
+// Mode édition : réutilise la modale de création avec UPDATE au lieu d'INSERT
+let editMode = false;
+let editId   = null;
 
 async function openDetail(id) {
   try { await openDetailInner(id); }
@@ -1431,6 +1446,14 @@ async function openDetailInner(id) {
     </div>
 
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
+      ${canEdit ? `
+      <button class="btn-action" onclick="openEditModal(currentFiche)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+        Modifier
+      </button>` : ''}
       <button class="btn-action" id="btnPdf" onclick="generatePDF()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
           <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -1446,6 +1469,16 @@ async function openDetailInner(id) {
         </svg>
         Notifier l'équipe
       </button>
+      ${myRole === 'superadmin' ? `
+      <button class="btn-action btn-danger" onclick="deleteFiche('${id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+          <path d="M10 11v6M14 11v6"/>
+          <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+        </svg>
+        Supprimer
+      </button>` : ''}
     </div>
   `;
 }
@@ -1465,6 +1498,83 @@ async function changeStatut(id, nouveauStatut) {
 document.getElementById('detailOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) e.currentTarget.hidden = true;
 });
+
+// ── Réinitialisation du mode édition ────────────────────────────
+function resetEditMode() {
+  if (!editMode) return;
+  editMode = false;
+  editId   = null;
+  document.getElementById('createModalTitle').textContent = 'Nouvelle fiche fuite';
+  document.getElementById('btnSubmit').textContent        = 'Créer la fiche';
+}
+
+// ── Ouverture du formulaire en mode édition ─────────────────────
+function openEditModal(f) {
+  editMode = true;
+  editId   = f.id;
+
+  document.getElementById('createModalTitle').textContent = `Modifier ${f.reference || 'la fiche'}`;
+  document.getElementById('btnSubmit').textContent        = 'Enregistrer';
+
+  // Utilitaires de remplissage
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v != null ? v : ''); };
+  const chk = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+
+  set('fPosition',    f.position);
+  set('fUrgence',     f.urgence);
+  set('fAdresse',     f.adresse);
+  set('fCommune',     f.commune);
+  set('fTypeFuite',   f.type_fuite);
+  set('fCause',       f.cause_fuite);
+  set('fMateriau',    f.reseau_materiau);
+  set('fDn',          f.dn);
+  set('fAnneePose',   f.annee_pose);
+  set('fProfondeur',  f.profondeur_m);
+  set('fPression',    f.pression_bar);
+  set('fRevetement',  f.revetement);
+  set('fDetection',   f.technique_detection);
+  set('fDebit',       f.debit_estime);
+  set('fLongueur',    f.longueur_reparee_m);
+  set('fIntervenant', f.intervenant);
+  set('fDescription', f.description);
+  set('fRecommandation', f.recommandation);
+  set('fCommentaire', f.commentaire);
+  set('fLat',         f.lat);
+  set('fLng',         f.lon);
+
+  chk('fRoute',  f.route_barrer);
+  chk('fArret',  f.arret_eau);
+  chk('fEcole',  f.ecole_proximite);
+  chk('fRenouv', f.conduite_renouvelee);
+
+  // Âge conduite
+  if (f.annee_pose) {
+    document.getElementById('ageHint').textContent = `≈ ${new Date().getFullYear() - f.annee_pose} ans`;
+  }
+
+  // Boutons intervenant
+  document.querySelectorAll('.intervenant-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === f.intervenant);
+  });
+
+  document.getElementById('detailOverlay').hidden = true;
+  document.getElementById('createOverlay').hidden = false;
+  document.getElementById('createMsg').className  = 'form-msg';
+}
+
+// ── Suppression (superadmin uniquement) ─────────────────────────
+async function deleteFiche(id) {
+  const ref = currentFiche?.reference || id;
+  if (!confirm(`Supprimer définitivement la fiche ${ref} ?\n\nCette action est irréversible — l'historique associé sera également supprimé.`)) return;
+
+  const { error } = await sb.from('fuites').delete().eq('id', id);
+  if (error) {
+    alert('Erreur lors de la suppression : ' + error.message);
+    return;
+  }
+  document.getElementById('detailOverlay').hidden = true;
+  loadFiches();
+}
 
 // ── PDF ─────────────────────────────────────────────────────────
 function generatePDF() {
