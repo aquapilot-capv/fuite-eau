@@ -1404,7 +1404,10 @@ async function openDetailInner(id) {
         <div class="detail-meta-item"><span class="label">Cause probable</span>${lbl(CAUSE_LABELS, f.cause_fuite)}</div>
         <div class="detail-meta-item"><span class="label">Détection</span>${escHtml(f.technique_detection || '—')}</div>
         <div class="detail-meta-item"><span class="label">Débit estimé</span>${f.debit_estime != null ? f.debit_estime + ' m³/h' : '—'}</div>
-        <div class="detail-meta-item"><span class="label">Créé le</span>${date(f.created_at)}</div>
+        <div class="detail-meta-item"><span class="label">Détectée le</span>${f.date_detection
+          ? new Date(f.date_detection).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' })
+          : date(f.created_at)}</div>
+        <div class="detail-meta-item"><span class="label">Enregistrée le</span>${date(f.created_at)}</div>
         <div class="detail-meta-item"><span class="label">Dernière modif.</span>${date(f.updated_at)}</div>
         <div class="detail-meta-item"><span class="label">Coordonnées</span>${f.lat ? '✓ GPS enregistré' : '—'}</div>
       </div>
