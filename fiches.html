@@ -5,8 +5,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Fuit'Eau — Fiches</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="./libs/supabase.min.js"></script>
+<script src="./libs/jspdf.umd.min.js"></script>
 <style>
 /* ── Tokens ── */
 :root {
@@ -1057,7 +1057,6 @@ document.querySelectorAll('.stat-card').forEach(card => {
   card.addEventListener('click', () => {
     filterStatut = card.dataset.stat;
     document.getElementById('selStatut').value = filterStatut;
-    // Sync sidebar
     document.querySelectorAll('[data-filter-side="statut"]').forEach(b => {
       b.classList.toggle('active', b.dataset.val === filterStatut);
     });
@@ -1089,7 +1088,6 @@ document.getElementById('btnRefresh').addEventListener('click', loadFiches);
 let allFiches = [];
 
 async function loadFiches() {
-  // Supabase plafonne chaque requête à 1000 lignes : on pagine (tri sur id, stable)
   const PAGE = 1000;
   let data = [], from = 0, error = null;
   while (true) {
@@ -1100,7 +1098,6 @@ async function loadFiches() {
     from += PAGE;
   }
   if (!error) {
-    // Tri par date réelle de détection (les fiches importées ont toutes la même created_at)
     const d = f => new Date(f.date_detection || f.created_at).getTime();
     allFiches = data.sort((a, b) => d(b) - d(a));
     renderFiches();
@@ -1128,8 +1125,6 @@ function renderFiches() {
 
   const urgBadge  = { normale:'badge-nor', urgente:'badge-urg', critique:'badge-cri' };
   const statBadge = { nouveau:'badge-nou', en_cours:'badge-enc', resolu:'badge-res', ferme:'badge-fer' };
-  const rowCls    = { nouveau:'row-normale', en_cours:'row-urgente', resolu:'row-resolu', ferme:'row-ferme',
-                      critique_urgence:'row-critique', urgente_urgence:'row-urgente', normale_urgence:'row-normale' };
 
   body.innerHTML = fiches.map(f => {
     const rowClass = f.statut === 'resolu' ? 'row-resolu'
@@ -1180,7 +1175,6 @@ function updateStats() {
   document.getElementById('fcCri').textContent = counts.critique;
   document.getElementById('fcUrg').textContent = counts.urgente;
 
-  // Highlight active stat card
   document.querySelectorAll('.stat-card').forEach(c => c.classList.toggle('active', c.dataset.stat === filterStatut));
 }
 
@@ -1256,7 +1250,6 @@ document.getElementById('createForm').addEventListener('submit', async e => {
   const payload = {
     position:    document.getElementById('fPosition').value,
     urgence:     document.getElementById('fUrgence').value,
-    // Numéro de voirie retiré (même règle que l'historique) ; si la rue devient vide, on garde la saisie
     adresse:     (document.getElementById('fAdresse').value.trim()
                    .replace(/^\d+\s*(bis|ter|quater)?[\s,.\-]+/i, '').trim())
                  || document.getElementById('fAdresse').value.trim(),
@@ -1312,7 +1305,6 @@ let currentFiche   = null;
 let currentHist    = [];
 
 async function openDetail(id) {
-  // Un échec d'affichage ne doit jamais laisser « Chargement… » à l'écran
   try { await openDetailInner(id); }
   catch (e) {
     console.error('openDetail', e);

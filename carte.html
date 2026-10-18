@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Fuit'Eau — Carte</title>
 
-<!-- CDN — à auto-héberger dans le repo à l'étape 2 (RGPD) -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<!-- Libs auto-hébergées — voir libs/ dans le repo -->
+<script src="./libs/supabase.min.js"></script>
+<link rel="stylesheet" href="./libs/leaflet.min.css">
+<script src="./libs/leaflet.min.js"></script>
+<link rel="stylesheet" href="./libs/MarkerCluster.min.css">
+<link rel="stylesheet" href="./libs/MarkerCluster.Default.min.css">
+<script src="./libs/leaflet.markercluster.min.js"></script>
 
 <style>
 /* ── Tokens ── */
@@ -375,10 +375,17 @@ let fCommune = '', fAnnee = '', fType = '', fUrgence = '';
 
   // Carte
   map = L.map('map', { center: MAP_CENTER, zoom: MAP_ZOOM });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
-    maxZoom: 19
-  }).addTo(map);
+  // IGN Géoplateforme — Plan IGN V2 — gratuit, sans clé, serveurs France (data.geopf.fr)
+  L.tileLayer(
+    'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0' +
+    '&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png' +
+    '&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+    {
+      attribution: '© <a href="https://www.ign.fr/">IGN</a> / Géoplateforme',
+      maxZoom: 19,
+      tileSize: 256
+    }
+  ).addTo(map);
 
   // Groupe de clusters — une seule instance, réutilisée via clearLayers / addLayers
   clusterGroup = L.markerClusterGroup({
