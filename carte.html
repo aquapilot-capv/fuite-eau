@@ -201,9 +201,9 @@ body {
 }
 .popup-btn:hover { background:#0A4D72; }
 
-/* ── Marqueur ponctuel — styles portés en inline dans le JS, hover via sélecteur générique ── */
-.leaflet-marker-icon div { cursor:pointer; transition:transform .1s; }
-.leaflet-marker-icon div:hover { transform:scale(1.25); }
+/* ── Marqueur goutte — hover via sélecteur générique ── */
+.leaflet-marker-icon svg { cursor:pointer; transition:transform .12s; transform-origin:bottom center; }
+.leaflet-marker-icon svg:hover { transform:scale(1.3); }
 
 /* ── Sélecteur de fond de carte ── */
 .layer-switcher {
@@ -676,20 +676,26 @@ function buildAllMarkers() {
     const isFerme   = f.statut === 'ferme';
     const isResolu  = f.statut === 'resolu';
     const fillColor = isResolu ? '#1A7A45' : COLOR_MAP[f.urgence] || '#0C5E8A';
-    // Tailles en px (diamètre) — box-sizing:border-box pour que le border reste dans la zone
-    const size = f.urgence === 'critique' ? 24 : f.urgence === 'urgente' ? 20 : 16;
-    // fermée = anneau creux : lisible sur tout fond de carte, sans masquer les fiches actives
+    // Tailles goutte : w × h, ancre sur la pointe basse
+    const w = f.urgence === 'critique' ? 22 : f.urgence === 'urgente' ? 18 : 15;
+    const h = f.urgence === 'critique' ? 30 : f.urgence === 'urgente' ? 25 : 21;
+    // Chemin goutte d'eau (viewBox 0 0 14 21 : arrondi en bas, pointe en haut)
+    const dp = 'M7,1 C3,5 0,10 0,14 a7,7 0 0 0 14,0 C14,10 11,5 7,1Z';
     const pinHtml = isFerme
-      ? `<div style="width:${size}px;height:${size}px;box-sizing:border-box;border-radius:50%;background:transparent;border:2.5px solid #64748B;"></div>`
-      : `<div style="width:${size}px;height:${size}px;box-sizing:border-box;border-radius:50%;background:${fillColor};border:2px solid rgba(255,255,255,.95);box-shadow:0 1px 8px rgba(0,0,0,.5);"></div>`;
+      ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 21" width="${w}" height="${h}" style="display:block;overflow:visible">
+           <path d="${dp}" fill="none" stroke="#64748B" stroke-width="2"/>
+         </svg>`
+      : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 21" width="${w}" height="${h}" style="display:block;overflow:visible;filter:drop-shadow(0 1px 5px rgba(0,0,0,.55))">
+           <path d="${dp}" fill="${fillColor}" stroke="rgba(255,255,255,.9)" stroke-width="1.2"/>
+         </svg>`;
 
     const marker = L.marker([lat, lng], {
       icon: L.divIcon({
         html: pinHtml,
         className: '',
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-        popupAnchor: [0, -(size / 2 + 4)]
+        iconSize: [w, h],
+        iconAnchor: [w / 2, h],      // pointe basse = position GPS exacte
+        popupAnchor: [0, -(h + 4)]
       })
     });
 
