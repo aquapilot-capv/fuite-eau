@@ -499,6 +499,7 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
 }
 .form-msg.error   { background: #fde8e6; color: var(--error); display: block; }
 .form-msg.success { background: #e6f4ec; color: var(--success); display: block; }
+.form-msg.warning { background: #fef3c7; color: #92400e; display: block; }
 
 /* Sections de formulaire */
 .form-section {
@@ -1269,6 +1270,15 @@ function initIntervenants() {
 function openCreateModal() {
   document.getElementById('createOverlay').hidden = false;
   closeSidebar();
+  // Bannière mode démo
+  const msg = document.getElementById('createMsg');
+  if (myRole === 'demo') {
+    msg.textContent  = '🔒 Mode démo — vous pouvez remplir la fiche mais l\'enregistrement est désactivé.';
+    msg.className    = 'form-msg warning';
+  } else {
+    msg.textContent  = '';
+    msg.className    = 'form-msg';
+  }
 }
 document.getElementById('btnCreate').addEventListener('click', openCreateModal);
 document.getElementById('btnCreateSide').addEventListener('click', openCreateModal);
@@ -1310,6 +1320,14 @@ document.getElementById('createForm').addEventListener('submit', async e => {
   e.preventDefault();
   const btn = document.getElementById('btnSubmit');
   const msg = document.getElementById('createMsg');
+
+  // Mode démo : bloquer l'enregistrement
+  if (myRole === 'demo') {
+    msg.textContent = '🔒 Mode démo — enregistrement désactivé.';
+    msg.className   = 'form-msg warning';
+    return;
+  }
+
   msg.className = 'form-msg';
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Création…';
