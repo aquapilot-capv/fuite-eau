@@ -239,6 +239,21 @@ body {
 .ls-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 .ls-btn.active svg { stroke: #fff; }
 
+/* ── Bouton overlay (toggle indépendant du fond de carte) ── */
+.ls-sep { width:1px; background:var(--border); margin:.15rem .1rem; flex-shrink:0; align-self:stretch; }
+.ls-btn.overlay-on { background:#166534; color:#fff; border-color:#166534; }
+.ls-btn.overlay-on svg { stroke:#fff; }
+.ls-btn.overlay-loading { opacity:.6; pointer-events:none; }
+
+/* ── Tooltip conduites ── */
+.conduite-tooltip {
+  background:var(--surface); border:1px solid var(--border);
+  color:var(--text); font-size:.72rem; font-weight:600;
+  border-radius:5px; padding:.18rem .42rem;
+  box-shadow:0 1px 6px rgba(0,0,0,.15);
+}
+.conduite-tooltip::before { display:none; }
+
 /* ── Cluster (override MarkerCluster.Default) ── */
 .marker-cluster       { background:transparent !important; }
 .marker-cluster div   { background:transparent !important; }
@@ -370,6 +385,16 @@ body {
   <div class="legend-item"><div class="legend-dot" style="background:#0C5E8A"></div>Normale</div>
   <div class="legend-item"><div class="legend-dot" style="background:#1A7A45"></div>Résolue</div>
   <div class="legend-item"><div style="width:10px;height:10px;border-radius:50%;border:2px solid #64748B;flex-shrink:0"></div>Fermée</div>
+  <div id="conduites-legend" style="display:none;margin-top:.45rem;padding-top:.4rem;border-top:1px solid var(--border)">
+    <div class="legend-title">Réseau AEP</div>
+    <div class="legend-item"><div style="width:18px;height:3px;background:#1d4ed8;border-radius:2px;flex-shrink:0"></div>Fonte grise</div>
+    <div class="legend-item"><div style="width:18px;height:3px;background:#3b82f6;border-radius:2px;flex-shrink:0"></div>Fonte ductile</div>
+    <div class="legend-item"><div style="width:18px;height:3px;background:#16a34a;border-radius:2px;flex-shrink:0"></div>PEHD</div>
+    <div class="legend-item"><div style="width:18px;height:3px;background:#d97706;border-radius:2px;flex-shrink:0"></div>PVC</div>
+    <div class="legend-item"><div style="width:18px;height:3px;background:#dc2626;border-radius:2px;flex-shrink:0"></div>Amiante-ciment</div>
+    <div class="legend-item"><div style="width:18px;height:3px;background:#6b7280;border-radius:2px;flex-shrink:0"></div>Acier</div>
+    <div class="legend-item"><div style="width:18px;height:3px;background:#ef4444;border-radius:2px;flex-shrink:0"></div>Autre</div>
+  </div>
 </div>
 
 <div class="synthese-panel" id="synthesePanel"></div>
@@ -399,6 +424,20 @@ let baseLayers    = {};   // plan | ortho
 let cadastreLayer = null; // overlay transparent sur plan
 let activeLayerKey = 'plan';
 
+// ── Couche réseau AEP ─────────────────────────────────────────────────
+let conduitesLayer   = null;   // L.geoJSON ou null
+let _conduitesCache  = null;   // GeoJSON brut (cache session)
+let conduitesVisible = false;
+
+const CONDUITES_PALETTE = {
+  'FG': '#1d4ed8', 'Fonte grise': '#1d4ed8',
+  'F' : '#3b82f6', 'Fonte': '#3b82f6', 'Fonte ductile': '#3b82f6',
+  'AC': '#dc2626', 'Amiante-ciment': '#dc2626', 'Amiante ciment': '#dc2626',
+  'PEHD': '#16a34a', 'PE': '#16a34a',
+  'PVC' : '#d97706', 'PVCc': '#b45309',
+  'Acier': '#6b7280', 'Plomb': '#7c3aed', 'Cuivre': '#b45309',
+};
+
 function initTileLayers() {
   baseLayers.plan  = L.tileLayer(TILE_URLS.plan,  IGN_OPTS);
   baseLayers.ortho = L.tileLayer(TILE_URLS.ortho, IGN_OPTS);
@@ -415,8 +454,8 @@ function switchLayer(key) {
   map.addLayer(key === 'ortho' ? baseLayers.ortho : baseLayers.plan);
   if (key === 'cadastre') map.addLayer(cadastreLayer);
 
-  // Mettre à jour les boutons
-  document.querySelectorAll('.ls-btn').forEach(b =>
+  // Mettre à jour les boutons (ne touche pas les boutons overlay)
+  document.querySelectorAll('.ls-btn[data-layer]').forEach(b =>
     b.classList.toggle('active', b.dataset.layer === key)
   );
 }
@@ -453,10 +492,18 @@ function createLayerSwitcher() {
           </svg>
           Cadastre
         </button>
+        <div class="ls-sep"></div>
+        <button class="ls-btn" id="btnConduites" data-overlay="conduites" title="Réseau AEP (conduites)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12h18M3 6h4a2 2 0 012 2v8a2 2 0 01-2 2H3M21 6h-4a2 2 0 00-2 2v8a2 2 0 002 2h4"/>
+          </svg>
+          Réseau
+        </button>
       `;
-      c.querySelectorAll('.ls-btn').forEach(btn =>
+      c.querySelectorAll('.ls-btn[data-layer]').forEach(btn =>
         btn.addEventListener('click', () => switchLayer(btn.dataset.layer))
       );
+      c.querySelector('#btnConduites').addEventListener('click', toggleConduites);
       return c;
     }
   });
@@ -739,6 +786,72 @@ function resetFilters() {
     el.classList.remove('active');
   });
   applyFilters(true);
+}
+
+// ── Réseau AEP : chargement + toggle ─────────────────────────────────
+
+async function fetchConduites() {
+  if (_conduitesCache) return _conduitesCache;
+  try {
+    const { data: u } = await sb.storage.from('sig-exports').createSignedUrl('conduites_aep.geojson', 120);
+    if (!u?.signedUrl) throw new Error('Signed URL manquante');
+    const geo = await fetch(u.signedUrl).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+    _conduitesCache = geo;
+    return geo;
+  } catch (e) {
+    console.warn('conduites_aep non dispo :', e.message);
+    return null;
+  }
+}
+
+async function toggleConduites() {
+  const btn = document.getElementById('btnConduites');
+  if (!btn) return;
+
+  if (conduitesVisible && conduitesLayer) {
+    // ── Masquer ──
+    map.removeLayer(conduitesLayer);
+    conduitesVisible = false;
+    btn.classList.remove('overlay-on');
+    document.getElementById('conduites-legend').style.display = 'none';
+    return;
+  }
+
+  // ── Afficher (chargement lazy) ──
+  btn.classList.add('overlay-loading');
+  btn.title = 'Chargement…';
+
+  const geo = await fetchConduites();
+
+  btn.classList.remove('overlay-loading');
+  btn.title = 'Réseau AEP (conduites)';
+
+  if (!geo) {
+    btn.title = 'Réseau AEP — non disponible (export manquant ?)';
+    return;
+  }
+
+  if (!conduitesLayer) {
+    conduitesLayer = L.geoJSON(geo, {
+      style(feat) {
+        const nat = feat?.properties?.nature || feat?.properties?.NATURE || '';
+        return { color: CONDUITES_PALETTE[nat] || '#ef4444', weight: 2.5, opacity: 0.82 };
+      },
+      onEachFeature(feat, layer) {
+        const nat = feat?.properties?.nature || feat?.properties?.NATURE || '';
+        const phi = feat?.properties?.phi || feat?.properties?.PHI || '';
+        const lbl = [nat, phi ? 'DN ' + phi : ''].filter(Boolean).join(' · ');
+        if (lbl) layer.bindTooltip(lbl, { sticky: true, className: 'conduite-tooltip' });
+      }
+    });
+  }
+
+  conduitesLayer.addTo(map);
+  // Les marqueurs restent au-dessus (clusterGroup est ajouté après)
+  clusterGroup.bringToFront();
+  conduitesVisible = true;
+  btn.classList.add('overlay-on');
+  document.getElementById('conduites-legend').style.display = 'block';
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────
