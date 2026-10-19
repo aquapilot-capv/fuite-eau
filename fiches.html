@@ -604,6 +604,71 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
 .btn-action svg { width: 15px; height: 15px; }
 .btn-action.btn-danger:hover:not(:disabled) { border-color: var(--error); color: var(--error); }
 
+/* ── Workflow timeline ── */
+.wf-section { margin-bottom: 1rem; }
+.wf-section h3 {
+  font-size: .72rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: .6rem;
+}
+.wf-timeline { position: relative; padding-left: 1.4rem; }
+.wf-timeline::before {
+  content: ''; position: absolute; left: .4rem; top: 0; bottom: 0;
+  width: 2px; background: var(--border); border-radius: 1px;
+}
+.wf-step {
+  position: relative; margin-bottom: .55rem;
+  display: flex; align-items: flex-start; gap: .55rem;
+}
+.wf-dot {
+  position: absolute; left: -1.05rem; top: .22rem;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--border); background: var(--surface);
+  flex-shrink: 0; z-index: 1; transition: all .15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.wf-step.done .wf-dot {
+  background: var(--success); border-color: var(--success);
+}
+.wf-step.next .wf-dot {
+  background: var(--primary); border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(12,94,138,.18);
+}
+.wf-dot svg { width: 8px; height: 8px; fill: #fff; display: none; }
+.wf-step.done .wf-dot svg { display: block; }
+.wf-body { flex: 1; min-width: 0; }
+.wf-label {
+  font-size: .84rem; font-weight: 600; color: var(--text); line-height: 1.2;
+}
+.wf-step.done .wf-label { color: var(--success); }
+.wf-step.next .wf-label { color: var(--primary); }
+.wf-step.pending .wf-label { color: var(--muted); font-weight: 500; }
+.wf-meta { font-size: .72rem; color: var(--muted); margin-top: .1rem; }
+.wf-comment-input {
+  width: 100%; margin-top: .3rem;
+  padding: .35rem .6rem;
+  border: 1.5px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--text);
+  font-size: .8rem; outline: none; font-family: inherit;
+}
+.wf-comment-input:focus { border-color: var(--primary); }
+.wf-btn {
+  margin-top: .3rem;
+  padding: .3rem .75rem; border-radius: 20px;
+  background: var(--primary); color: #fff;
+  border: none; font-size: .78rem; font-weight: 600;
+  cursor: pointer; transition: background .15s;
+}
+.wf-btn:hover { background: var(--primary-h); }
+.wf-btn:disabled { opacity: .5; cursor: default; }
+.wf-btn-undo {
+  margin-top: .3rem; margin-left: .3rem;
+  padding: .3rem .6rem; border-radius: 20px;
+  background: none; color: var(--muted);
+  border: 1.5px solid var(--border); font-size: .75rem;
+  cursor: pointer; transition: all .15s;
+}
+.wf-btn-undo:hover { border-color: var(--error); color: var(--error); }
+
 /* ── Photos ── */
 .photo-grid {
   display: grid; grid-template-columns: repeat(2, 1fr);
@@ -863,6 +928,17 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
             <option value="critique">Critique</option>
           </select>
         </div>
+      </div>
+      <div class="form-cols">
+        <div class="form-row">
+          <label>Accès conduite</label>
+          <select id="fAcces">
+            <option value="">— Non précisé —</option>
+            <option value="enterre">Enterrée (excavation)</option>
+            <option value="regard">En regard (visible)</option>
+          </select>
+        </div>
+        <div class="form-row"><!-- spacer --></div>
       </div>
 
       <div class="form-cols">
@@ -1357,6 +1433,7 @@ document.getElementById('createForm').addEventListener('submit', async e => {
     technique_detection: document.getElementById('fDetection').value || null,
     debit_estime: numOrNull('fDebit'),
     longueur_reparee_m: numOrNull('fLongueur'),
+    acces:        document.getElementById('fAcces').value || null,
     route_barrer: document.getElementById('fRoute').checked,
     arret_eau:   document.getElementById('fArret').checked,
     ecole_proximite: document.getElementById('fEcole').checked,
@@ -1547,8 +1624,15 @@ async function openDetailInner(id) {
 
     ${statutBtns}
 
+    <div class="wf-section" id="wfSection">
+      <h3>Avancement — Workflow</h3>
+      <div class="wf-timeline" id="wfTimeline">
+        <div style="font-size:.82rem;color:var(--muted)">Chargement…</div>
+      </div>
+    </div>
+
     <div class="detail-section">
-      <h3>Historique</h3>
+      <h3>Historique des statuts</h3>
       ${histoHtml}
     </div>
 
@@ -1589,8 +1673,9 @@ async function openDetailInner(id) {
     </div>
   `;
 
-  // Charger les photos maintenant que le DOM est prêt
+  // Charger les photos et le workflow maintenant que le DOM est prêt
   loadPhotos(id);
+  loadWorkflow(id);
 }
 
 async function changeStatut(id, nouveauStatut) {
@@ -1632,6 +1717,7 @@ function openEditModal(f) {
 
   set('fPosition',    f.position);
   set('fUrgence',     f.urgence);
+  set('fAcces',       f.acces);
   set('fAdresse',     f.adresse);
   set('fCommune',     f.commune);
   set('fTypeFuite',   f.type_fuite);
@@ -2227,6 +2313,105 @@ async function envoyerEmail(btn) {
     btn.innerHTML = orig;
     alert('Erreur envoi email : ' + (err.message || err));
   }
+}
+
+// ── Workflow ────────────────────────────────────────────────────
+async function loadWorkflow(ficheId) {
+  const tl = document.getElementById('wfTimeline');
+  if (!tl) return;
+
+  const { data: etapes, error } = await sb.rpc('fuites_etapes_pour_fiche', { p_fuite_id: ficheId });
+  if (error) {
+    tl.innerHTML = `<div style="font-size:.8rem;color:var(--muted)">Erreur workflow : ${escHtml(error.message)}</div>`;
+    return;
+  }
+  if (!etapes || etapes.length === 0) {
+    tl.innerHTML = '<div style="font-size:.82rem;color:var(--muted)">Aucune étape définie pour ce type de fiche.</div>';
+    return;
+  }
+
+  const canValidate = ['superadmin', 'agent_rdf'].includes(myRole);
+  // Première étape non validée = "next"
+  const firstPending = etapes.find(e => !e.valide);
+
+  const fmtDate = d => d ? new Date(d).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+
+  tl.innerHTML = etapes.map(e => {
+    const isDone    = !!e.valide;
+    const isNext    = !isDone && firstPending && e.etape_code === firstPending.etape_code;
+    const stepClass = isDone ? 'done' : isNext ? 'next' : 'pending';
+
+    const checkSvg = `<svg viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2.5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+    let metaHtml = '';
+    if (isDone) {
+      const who = e.valide_par ? '' : ''; // pas de nom, juste la date (minimisation)
+      metaHtml = `<div class="wf-meta">✓ ${fmtDate(e.valide_at)}${e.commentaire ? ' · ' + escHtml(e.commentaire) : ''}</div>`;
+    }
+
+    let actionHtml = '';
+    if (canValidate && !isDone) {
+      actionHtml = `
+        <input class="wf-comment-input" id="wf-comment-${e.etape_code}"
+          placeholder="Commentaire (optionnel)" maxlength="200">
+        <button class="wf-btn" onclick="validerEtape('${ficheId}','${e.etape_code}',this)">Valider</button>`;
+    }
+    if (canValidate && isDone) {
+      actionHtml = `<button class="wf-btn-undo" onclick="annulerEtape('${ficheId}','${e.etape_code}',this)">Annuler</button>`;
+    }
+
+    return `
+      <div class="wf-step ${stepClass}" id="wf-step-${e.etape_code}">
+        <div class="wf-dot">${checkSvg}</div>
+        <div class="wf-body">
+          <div class="wf-label">${escHtml(e.label)}</div>
+          ${metaHtml}
+          ${actionHtml}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function validerEtape(ficheId, etapeCode, btn) {
+  btn.disabled = true;
+  const commentEl = document.getElementById(`wf-comment-${etapeCode}`);
+  const commentaire = commentEl ? commentEl.value.trim() || null : null;
+
+  const { error } = await sb.from('fuites_etapes').insert({
+    fuite_id:    ficheId,
+    etape_code:  etapeCode,
+    valide_par:  myUserId || null,
+    commentaire,
+  });
+
+  if (error) {
+    btn.disabled = false;
+    alert('Erreur : ' + error.message);
+    return;
+  }
+  // Mise à jour du statut automatique selon l'étape validée
+  const statutMap = {
+    transmis:        'en_cours',
+    en_intervention: 'en_cours',
+    repare:          'resolu',
+    classe:          'ferme',
+  };
+  if (statutMap[etapeCode]) {
+    await sb.from('fuites').update({ statut: statutMap[etapeCode] }).eq('id', ficheId);
+    loadFiches();
+  }
+  loadWorkflow(ficheId);
+}
+
+async function annulerEtape(ficheId, etapeCode, btn) {
+  if (!confirm(`Annuler l'étape "${etapeCode}" ?`)) return;
+  btn.disabled = true;
+  const { error } = await sb.from('fuites_etapes')
+    .delete()
+    .eq('fuite_id', ficheId)
+    .eq('etape_code', etapeCode);
+  if (error) { btn.disabled = false; alert('Erreur : ' + error.message); return; }
+  loadWorkflow(ficheId);
 }
 
 // ── Utils ──
