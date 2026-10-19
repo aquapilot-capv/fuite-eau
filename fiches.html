@@ -1267,11 +1267,29 @@ document.getElementById('createOverlay').addEventListener('click', e => {
 });
 
 document.getElementById('btnGeo').addEventListener('click', () => {
-  if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(pos => {
-    document.getElementById('fLat').value = pos.coords.latitude.toFixed(6);
-    document.getElementById('fLng').value = pos.coords.longitude.toFixed(6);
-  }, () => alert('Géolocalisation indisponible'));
+  if (!navigator.geolocation) { alert('La géolocalisation n\'est pas supportée par ce navigateur.'); return; }
+  const btn = document.getElementById('btnGeo');
+  btn.disabled = true;
+  btn.textContent = '⌛ Localisation…';
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      document.getElementById('fLat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('fLng').value = pos.coords.longitude.toFixed(6);
+      btn.disabled = false;
+      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> Ma position`;
+    },
+    err => {
+      btn.disabled = false;
+      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> Ma position`;
+      const msgs = {
+        1: 'Permission refusée. Autorise la localisation dans les paramètres du navigateur.',
+        2: 'Position indisponible. Vérifie que le GPS est activé.',
+        3: 'Délai dépassé. Réessaie en extérieur ou avec le WiFi activé.',
+      };
+      alert(msgs[err.code] || 'Géolocalisation indisponible.');
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
 });
 
 document.getElementById('createForm').addEventListener('submit', async e => {
@@ -1845,7 +1863,7 @@ async function loadPhotos(ficheId) {
 
   const { data: photos, error } = await sb
     .from('fuites_photos')
-    .select('id, storage_path, created_at')
+    .select('id, bucket_path, nom_fichier, created_at')
     .eq('fuite_id', ficheId)
     .order('created_at');
 
@@ -1865,17 +1883,17 @@ async function loadPhotos(ficheId) {
 
   // Signed URLs (1 h de validité)
   const items = await Promise.all((photos || []).map(async p => {
-    const { data } = await sb.storage.from('fuites-photos').createSignedUrl(p.storage_path, 3600);
+    const { data } = await sb.storage.from('fuites-photos').createSignedUrl(p.bucket_path, 3600);
     return { ...p, url: data?.signedUrl };
   }));
 
   const canDel = myRole === 'superadmin';
   grid.innerHTML = items.map(p => `
-    <div class="photo-item" title="${escHtml(p.storage_path)}">
+    <div class="photo-item" title="${escHtml(p.nom_fichier || p.bucket_path)}">
       ${p.url
         ? `<img src="${escHtml(p.url)}" alt="Photo" onclick="window.open('${escHtml(p.url)}','_blank')">`
         : '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:.75rem;color:var(--muted)">Erreur URL</div>'}
-      ${canDel ? `<button class="photo-del" onclick="deletePhoto('${p.id}','${escHtml(p.storage_path)}')" title="Supprimer">✕</button>` : ''}
+      ${canDel ? `<button class="photo-del" onclick="deletePhoto('${p.id}','${escHtml(p.bucket_path)}')" title="Supprimer">✕</button>` : ''}
     </div>`).join('');
 }
 
@@ -1914,9 +1932,11 @@ async function uploadPhoto(input) {
   if (upErr) { showPhotoMsg('Upload : ' + upErr.message, 'error'); btn.disabled = false; return; }
 
   const { error: dbErr } = await sb.from('fuites_photos').insert({
-    fuite_id:     currentFicheId,
-    storage_path: path,
-    created_by:   myUserId || null,
+    fuite_id:      currentFicheId,
+    bucket_path:   path,
+    nom_fichier:   file.name,
+    taille_octets: blob.size,
+    uploaded_by:   myUserId || null,
   });
   if (dbErr) {
     await sb.storage.from('fuites-photos').remove([path]); // rollback storage
