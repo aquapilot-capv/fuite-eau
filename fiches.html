@@ -1655,8 +1655,10 @@ async function deleteFiche(id) {
 }
 
 // ── PDF ─────────────────────────────────────────────────────────
-function generatePDF() {
+async function generatePDF() {
   if (!currentFiche || !window.jspdf) return;
+  const btnPdf = document.getElementById('btnPdf');
+  if (btnPdf) { btnPdf.disabled = true; btnPdf.textContent = '⌛ Génération…'; }
   const { jsPDF } = window.jspdf;
   const f = currentFiche;
   const hist = currentHist;
@@ -1828,8 +1830,57 @@ function generatePDF() {
     doc.text(`${p}/${pageCount}`, W - M, 289, { align: 'right' });
   }
 
-  doc.save(`fiche-fuite-${(f.reference || 'sans-ref').replace(/[^A-Z0-9-]/gi, '_')}.pdf`);
-}
+  // ── Photos dans le PDF ────────────────────────────────────────
+  try {
+    const { data: photos } = await sb
+      .from('fuites_photos')
+      .select('id, bucket_path, nom_fichier')
+      .eq('fuite_id', f.id)
+      .order('created_at');
+
+    if (photos && photos.length > 0) {
+      if (y > 220) { doc.addPage(); y = 20; }
+      doc.setDrawColor(...BORD);
+      doc.line(M, y, W - M, y);
+      y += 8;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...MUTED);
+      doc.text(`PHOTOS (${photos.length})`, M, y);
+      y += 6;
+
+      const IMG_W = 85, IMG_H = 64, GAP = 10;
+      let rowStart = y;
+
+      for (let i = 0; i < photos.length; i++) {
+        const p = photos[i];
+        const { data: urlData } = await sb.storage
+          .from('fuites-photos').createSignedUrl(p.bucket_path, 300);
+        if (!urlData?.signedUrl) continue;
+        try {
+          const b64 = await pdfImgToBase64(urlData.signedUrl);
+          const col = i % 2;
+          if (col === 0 && i > 0) { rowStart += IMG_H + 5; }
+          const xImg = col === 0 ? M : M + IMG_W + GAP;
+          if (rowStart + IMG_H > 275) { doc.addPage(); rowStart = 20; }
+          doc.addImage(b64, 'JPEG', xImg, rowStart, IMG_W, IMG_H);
+        } catch (_) { /* image ignorée */ }
+      }
+      y = rowStart + IMG_H + 6;
+    }
+  } catch (_) { /* section photos ignorée si erreur */ }
+
+  const pageCount = doc.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(...BORD);
+    doc.line(M, 284, W - M, 284);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...MUTED);
+    doc.text(`Fuit'Eau · CAPV · Document confidentiel`, M, 289);
+    doc.text(`${p}/${pageCount}`, W - M, 289, { align: 'right' });
+  }
 
 // ── Photos ──────────────────────────────────────────────────────
 // Compression côté client : max 1600 px, JPEG 0,75
