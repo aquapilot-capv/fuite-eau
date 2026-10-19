@@ -872,7 +872,9 @@ tbody tr.row-ferme    td:first-child { border-left: 3px solid #9CA3AF; }
         </div>
         <div class="form-row">
           <label>Commune *</label>
-          <input type="text" id="fCommune" placeholder="Voiron" required>
+          <select id="fCommune" required>
+            <option value="">— Choisir —</option>
+          </select>
         </div>
       </div>
 
@@ -1138,6 +1140,7 @@ async function loadFiches() {
   if (!error) {
     const d = f => new Date(f.date_detection || f.created_at).getTime();
     allFiches = data.sort((a, b) => d(b) - d(a));
+    populateCommuneSelect();
     renderFiches();
   }
 }
@@ -1221,6 +1224,16 @@ function setupRealtime() {
   sb.channel('fuites-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'fuites' }, () => loadFiches())
     .subscribe();
+}
+
+function populateCommuneSelect() {
+  const sel     = document.getElementById('fCommune');
+  const current = sel.value; // préserve si le modal est déjà ouvert
+  const list    = [...new Set(allFiches.map(f => f.commune).filter(Boolean))]
+                    .sort((a, b) => a.localeCompare(b, 'fr'));
+  sel.innerHTML = '<option value="">— Choisir —</option>'
+    + list.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+  if (current) sel.value = current;
 }
 
 function initSelects() {
