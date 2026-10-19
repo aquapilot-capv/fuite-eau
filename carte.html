@@ -244,6 +244,7 @@ body {
 .ls-btn.overlay-on { background:#166534; color:#fff; border-color:#166534; }
 .ls-btn.overlay-on svg { stroke:#fff; }
 .ls-btn.overlay-loading { opacity:.6; pointer-events:none; }
+.ls-btn.net-overlay { min-width:44px; padding:.4rem .38rem; }
 
 /* ── Tooltip conduites ── */
 .conduite-tooltip {
@@ -385,7 +386,7 @@ body {
   <div class="legend-item"><div class="legend-dot" style="background:#0C5E8A"></div>Normale</div>
   <div class="legend-item"><div class="legend-dot" style="background:#1A7A45"></div>Résolue</div>
   <div class="legend-item"><div style="width:10px;height:10px;border-radius:50%;border:2px solid #64748B;flex-shrink:0"></div>Fermée</div>
-  <div id="conduites-legend" style="display:none;margin-top:.45rem;padding-top:.4rem;border-top:1px solid var(--border)">
+  <div id="legend-aep" style="display:none;margin-top:.45rem;padding-top:.4rem;border-top:1px solid var(--border)">
     <div class="legend-title">Réseau AEP</div>
     <div class="legend-item"><div style="width:18px;height:3px;background:#1d4ed8;border-radius:2px;flex-shrink:0"></div>Fonte grise</div>
     <div class="legend-item"><div style="width:18px;height:3px;background:#3b82f6;border-radius:2px;flex-shrink:0"></div>Fonte ductile</div>
@@ -394,6 +395,14 @@ body {
     <div class="legend-item"><div style="width:18px;height:3px;background:#dc2626;border-radius:2px;flex-shrink:0"></div>Amiante-ciment</div>
     <div class="legend-item"><div style="width:18px;height:3px;background:#6b7280;border-radius:2px;flex-shrink:0"></div>Acier</div>
     <div class="legend-item"><div style="width:18px;height:3px;background:#ef4444;border-radius:2px;flex-shrink:0"></div>Autre</div>
+  </div>
+  <div id="legend-eu" style="display:none;margin-top:.45rem;padding-top:.4rem;border-top:1px solid var(--border)">
+    <div class="legend-title">Réseau EU</div>
+    <div class="legend-item"><div style="width:18px;height:3px;background:#92400e;border-radius:2px;flex-shrink:0"></div>Eaux usées</div>
+  </div>
+  <div id="legend-ep" style="display:none;margin-top:.45rem;padding-top:.4rem;border-top:1px solid var(--border)">
+    <div class="legend-title">Réseau EP</div>
+    <div class="legend-item"><div style="width:18px;height:3px;background:#0891b2;border-radius:2px;flex-shrink:0"></div>Eaux pluviales</div>
   </div>
 </div>
 
@@ -424,11 +433,7 @@ let baseLayers    = {};   // plan | ortho
 let cadastreLayer = null; // overlay transparent sur plan
 let activeLayerKey = 'plan';
 
-// ── Couche réseau AEP ─────────────────────────────────────────────────
-let conduitesLayer   = null;   // L.geoJSON ou null
-let _conduitesCache  = null;   // GeoJSON brut (cache session)
-let conduitesVisible = false;
-
+// ── Couches réseau SIG (AEP / EU / EP) ───────────────────────────────
 const CONDUITES_PALETTE = {
   'FG': '#1d4ed8', 'Fonte grise': '#1d4ed8',
   'F' : '#3b82f6', 'Fonte': '#3b82f6', 'Fonte ductile': '#3b82f6',
@@ -436,6 +441,45 @@ const CONDUITES_PALETTE = {
   'PEHD': '#16a34a', 'PE': '#16a34a',
   'PVC' : '#d97706', 'PVCc': '#b45309',
   'Acier': '#6b7280', 'Plomb': '#7c3aed', 'Cuivre': '#b45309',
+};
+
+const NETWORKS = {
+  aep: {
+    file: 'conduites_aep.geojson', label: 'AEP',
+    title: 'Réseau AEP (conduites)',
+    layer: null, cache: null, visible: false, legendId: 'legend-aep',
+    style(feat) {
+      const nat = feat?.properties?.nature || feat?.properties?.NATURE || '';
+      return { color: CONDUITES_PALETTE[nat] || '#ef4444', weight: 2.5, opacity: 0.82 };
+    },
+    tooltip(feat) {
+      const nat = feat?.properties?.nature || feat?.properties?.NATURE || '';
+      const phi = feat?.properties?.phi    || feat?.properties?.PHI    || '';
+      return [nat, phi ? 'DN ' + phi : ''].filter(Boolean).join(' · ');
+    }
+  },
+  eu: {
+    file: 'conduites_eu.geojson', label: 'EU',
+    title: 'Réseau EU (eaux usées)',
+    layer: null, cache: null, visible: false, legendId: 'legend-eu',
+    style() { return { color: '#92400e', weight: 2, opacity: 0.8 }; },
+    tooltip(feat) {
+      const d = feat?.properties?.diam || feat?.properties?.DIAM
+             || feat?.properties?.phi  || feat?.properties?.PHI || '';
+      return d ? 'EU · DN ' + d : 'EU';
+    }
+  },
+  ep: {
+    file: 'conduites_ep.geojson', label: 'EP',
+    title: 'Réseau EP (eaux pluviales)',
+    layer: null, cache: null, visible: false, legendId: 'legend-ep',
+    style() { return { color: '#0891b2', weight: 2, opacity: 0.8 }; },
+    tooltip(feat) {
+      const d = feat?.properties?.diam || feat?.properties?.DIAM
+             || feat?.properties?.phi  || feat?.properties?.PHI || '';
+      return d ? 'EP · DN ' + d : 'EP';
+    }
+  }
 };
 
 function initTileLayers() {
@@ -493,17 +537,31 @@ function createLayerSwitcher() {
           Cadastre
         </button>
         <div class="ls-sep"></div>
-        <button class="ls-btn" id="btnConduites" data-overlay="conduites" title="Réseau AEP (conduites)">
+        <button class="ls-btn net-overlay" id="btnNet-aep" data-net="aep" title="Réseau AEP (conduites)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 12h18M3 6h4a2 2 0 012 2v8a2 2 0 01-2 2H3M21 6h-4a2 2 0 00-2 2v8a2 2 0 002 2h4"/>
           </svg>
-          Réseau
+          AEP
+        </button>
+        <button class="ls-btn net-overlay" id="btnNet-eu" data-net="eu" title="Réseau EU (eaux usées)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12h18M3 6h4a2 2 0 012 2v8a2 2 0 01-2 2H3M21 6h-4a2 2 0 00-2 2v8a2 2 0 002 2h4"/>
+          </svg>
+          EU
+        </button>
+        <button class="ls-btn net-overlay" id="btnNet-ep" data-net="ep" title="Réseau EP (eaux pluviales)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12h18M3 6h4a2 2 0 012 2v8a2 2 0 01-2 2H3M21 6h-4a2 2 0 00-2 2v8a2 2 0 002 2h4"/>
+          </svg>
+          EP
         </button>
       `;
       c.querySelectorAll('.ls-btn[data-layer]').forEach(btn =>
         btn.addEventListener('click', () => switchLayer(btn.dataset.layer))
       );
-      c.querySelector('#btnConduites').addEventListener('click', toggleConduites);
+      c.querySelectorAll('.ls-btn[data-net]').forEach(btn =>
+        btn.addEventListener('click', () => toggleNetworkLayer(btn.dataset.net))
+      );
       return c;
     }
   });
@@ -788,70 +846,62 @@ function resetFilters() {
   applyFilters(true);
 }
 
-// ── Réseau AEP : chargement + toggle ─────────────────────────────────
+// ── Réseau SIG : chargement + toggle (AEP / EU / EP) ─────────────────
 
-async function fetchConduites() {
-  if (_conduitesCache) return _conduitesCache;
+async function fetchNetworkLayer(id) {
+  const net = NETWORKS[id];
+  if (net.cache) return net.cache;
   try {
-    const { data: u } = await sb.storage.from('sig-exports').createSignedUrl('conduites_aep.geojson', 120);
+    const { data: u } = await sb.storage.from('sig-exports').createSignedUrl(net.file, 120);
     if (!u?.signedUrl) throw new Error('Signed URL manquante');
     const geo = await fetch(u.signedUrl).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
-    _conduitesCache = geo;
+    net.cache = geo;
     return geo;
   } catch (e) {
-    console.warn('conduites_aep non dispo :', e.message);
+    console.warn(net.file + ' non dispo :', e.message);
     return null;
   }
 }
 
-async function toggleConduites() {
-  const btn = document.getElementById('btnConduites');
+async function toggleNetworkLayer(id) {
+  const net = NETWORKS[id];
+  const btn = document.getElementById('btnNet-' + id);
   if (!btn) return;
 
-  if (conduitesVisible && conduitesLayer) {
-    // ── Masquer ──
-    map.removeLayer(conduitesLayer);
-    conduitesVisible = false;
+  if (net.visible && net.layer) {
+    map.removeLayer(net.layer);
+    net.visible = false;
     btn.classList.remove('overlay-on');
-    document.getElementById('conduites-legend').style.display = 'none';
+    document.getElementById(net.legendId).style.display = 'none';
     return;
   }
 
-  // ── Afficher (chargement lazy) ──
   btn.classList.add('overlay-loading');
   btn.title = 'Chargement…';
-
-  const geo = await fetchConduites();
-
+  const geo = await fetchNetworkLayer(id);
   btn.classList.remove('overlay-loading');
-  btn.title = 'Réseau AEP (conduites)';
+  btn.title = net.title;
 
   if (!geo) {
-    btn.title = 'Réseau AEP — non disponible (export manquant ?)';
+    btn.title = net.title + ' — non disponible (export manquant ?)';
     return;
   }
 
-  if (!conduitesLayer) {
-    conduitesLayer = L.geoJSON(geo, {
-      style(feat) {
-        const nat = feat?.properties?.nature || feat?.properties?.NATURE || '';
-        return { color: CONDUITES_PALETTE[nat] || '#ef4444', weight: 2.5, opacity: 0.82 };
-      },
+  if (!net.layer) {
+    net.layer = L.geoJSON(geo, {
+      style: net.style,
       onEachFeature(feat, layer) {
-        const nat = feat?.properties?.nature || feat?.properties?.NATURE || '';
-        const phi = feat?.properties?.phi || feat?.properties?.PHI || '';
-        const lbl = [nat, phi ? 'DN ' + phi : ''].filter(Boolean).join(' · ');
+        const lbl = net.tooltip(feat);
         if (lbl) layer.bindTooltip(lbl, { sticky: true, className: 'conduite-tooltip' });
       }
     });
   }
 
-  conduitesLayer.addTo(map);
-  // Les marqueurs restent au-dessus (clusterGroup est ajouté après)
+  net.layer.addTo(map);
   clusterGroup.bringToFront();
-  conduitesVisible = true;
+  net.visible = true;
   btn.classList.add('overlay-on');
-  document.getElementById('conduites-legend').style.display = 'block';
+  document.getElementById(net.legendId).style.display = 'block';
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────
