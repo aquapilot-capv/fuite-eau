@@ -1123,6 +1123,7 @@ document.getElementById('btnRefresh').addEventListener('click', loadFiches);
 
 // ── Data ────────────────────────────────────────────────────────
 let allFiches = [];
+let _conduitesCache = null; // GeoJSON conduites AEP (cache session)
 
 async function loadFiches() {
   const PAGE = 1000;
@@ -1654,6 +1655,119 @@ async function deleteFiche(id) {
   loadFiches();
 }
 
+// ── Carte PDF : tiles IGN Ortho + conduites AEP + marqueur ─────
+
+async function fetchSigMeta() {
+  try {
+    const { data: u } = await sb.storage.from('sig-exports').createSignedUrl('metadata.json', 60);
+    if (!u?.signedUrl) return null;
+    return await fetch(u.signedUrl).then(r => r.json());
+  } catch { return null; }
+}
+
+async function fetchConduites() {
+  if (_conduitesCache) return _conduitesCache;
+  try {
+    const { data: u } = await sb.storage.from('sig-exports').createSignedUrl('conduites_aep.geojson', 120);
+    if (!u?.signedUrl) return null;
+    const geo = await fetch(u.signedUrl).then(r => r.json());
+    _conduitesCache = geo;
+    return geo;
+  } catch (e) {
+    console.warn('conduites_aep non dispo :', e.message);
+    return null;
+  }
+}
+
+async function generateMapCanvas(lat, lon, geojson) {
+  const ZOOM = 17, TILE = 256, GRID = 3;
+  const N = Math.pow(2, ZOOM);
+  const off = Math.floor(GRID / 2); // 1
+
+  function geoToFloat(la, lo) {
+    const s = Math.sin(la * Math.PI / 180);
+    return {
+      x: (lo + 180) / 360 * N,
+      y: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * N
+    };
+  }
+
+  const cf = geoToFloat(lat, lon);
+  const cx = Math.floor(cf.x), cy = Math.floor(cf.y);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = GRID * TILE; // 768×768
+  const ctx = canvas.getContext('2d');
+
+  // Tuiles IGN Ortho 3×3
+  await Promise.all(
+    Array.from({ length: GRID * GRID }, (_, i) => {
+      const dx = (i % GRID) - off, dy = Math.floor(i / GRID) - off;
+      const url = `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0` +
+        `&TILEMATRIXSET=PM&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&TILEMATRIX=${ZOOM}` +
+        `&TILEROW=${cy + dy}&TILECOL=${cx + dx}&FORMAT=image/jpeg&STYLE=normal`;
+      return new Promise(res => {
+        const img = new Image(); img.crossOrigin = 'anonymous';
+        img.onload = () => { ctx.drawImage(img, (dx + off) * TILE, (dy + off) * TILE, TILE, TILE); res(); };
+        img.onerror = res;
+        img.src = url;
+      });
+    })
+  );
+
+  // Coord géo → pixel canvas
+  function gp(lo, la) {
+    const f = geoToFloat(la, lo);
+    return { x: (f.x - cx + off) * TILE, y: (f.y - cy + off) * TILE };
+  }
+
+  // Conduites AEP
+  if (geojson?.features) {
+    const PALETTE = {
+      'FG': '#1d4ed8', 'Fonte grise': '#1d4ed8',
+      'F':  '#3b82f6', 'Fonte': '#3b82f6', 'Fonte ductile': '#3b82f6',
+      'AC': '#dc2626', 'Amiante-ciment': '#dc2626', 'Amiante ciment': '#dc2626',
+      'PEHD': '#16a34a', 'PE': '#16a34a',
+      'PVC': '#d97706', 'PVCc': '#b45309',
+      'Acier': '#6b7280', 'Plomb': '#7c3aed', 'Cuivre': '#b45309',
+    };
+    const W = GRID * TILE;
+    ctx.lineWidth = 2.5; ctx.globalAlpha = 0.85;
+    for (const feat of geojson.features) {
+      const geom = feat?.geometry; if (!geom) continue;
+      const nat = feat.properties?.nature || feat.properties?.NATURE || '';
+      ctx.strokeStyle = PALETTE[nat] || '#ef4444';
+      const rings = geom.type === 'LineString' ? [geom.coordinates]
+        : geom.type === 'MultiLineString' ? geom.coordinates : [];
+      for (const ring of rings) {
+        let visible = false, first = true;
+        ctx.beginPath();
+        for (const [lo, la] of ring) {
+          const p = gp(lo, la);
+          if (p.x > -TILE && p.x < W + TILE && p.y > -TILE && p.y < W + TILE) visible = true;
+          first ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+          first = false;
+        }
+        if (visible) ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Marqueur fuite (disque rouge + croix blanche)
+  const mk = gp(lon, lat);
+  ctx.beginPath(); ctx.arc(mk.x + 2, mk.y + 3, 10, 0, 2 * Math.PI);
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(mk.x, mk.y, 11, 0, 2 * Math.PI);
+  ctx.fillStyle = '#ef4444'; ctx.fill();
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(mk.x - 6, mk.y); ctx.lineTo(mk.x + 6, mk.y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(mk.x, mk.y - 6); ctx.lineTo(mk.x, mk.y + 6); ctx.stroke();
+
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
 // ── PDF ─────────────────────────────────────────────────────────
 async function generatePDF() {
   if (!currentFiche || !window.jspdf) return;
@@ -1816,6 +1930,53 @@ async function generatePDF() {
       doc.text(metaStr, M + 3, y + 7);
       y += 15;
     });
+  }
+
+  // ── Carte localisation + réseau AEP ──────────────────────────
+  if (f.lat && f.lon) {
+    try {
+      if (y + 170 > 270) { doc.addPage(); y = 20; }
+      doc.setDrawColor(...BORD);
+      doc.line(M, y, W - M, y);
+      y += 8;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...MUTED);
+      const sigMeta = await fetchSigMeta();
+      const sigLabel = sigMeta?.date_export
+        ? ` · Réseau SIG au ${new Date(sigMeta.date_export).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+        : '';
+      doc.text(`LOCALISATION${sigLabel}`, M, y);
+      y += 6;
+      const conduites = await fetchConduites();
+      const mapB64 = await generateMapCanvas(parseFloat(f.lat), parseFloat(f.lon), conduites);
+      const MAP_W = 150, MAP_H = 150; // mm — canvas 768×768 carré
+      if (y + MAP_H > 275) { doc.addPage(); y = 20; }
+      doc.addImage(mapB64, 'JPEG', M, y, MAP_W, MAP_H);
+      y += MAP_H + 4;
+      // Légende matériaux
+      if (conduites) {
+        const leg = [
+          { l: 'Fonte',          c: [29, 78, 216] },
+          { l: 'Fonte ductile',  c: [59, 130, 246] },
+          { l: 'PEHD',           c: [22, 163, 74] },
+          { l: 'PVC',            c: [217, 119, 6] },
+          { l: 'Amiante-ciment', c: [220, 38, 38] },
+          { l: 'Acier',          c: [107, 114, 128] },
+        ];
+        if (y + 8 > 280) { doc.addPage(); y = 20; }
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'normal');
+        leg.forEach((item, i) => {
+          const lx = M + i * 29;
+          doc.setFillColor(...item.c);
+          doc.rect(lx, y, 4, 2.5, 'F');
+          doc.setTextColor(...DARK);
+          doc.text(item.l, lx + 5.5, y + 2);
+        });
+        y += 8;
+      }
+    } catch (e) { console.warn('Carte PDF ignorée :', e); }
   }
 
   // ── Photos dans le PDF ────────────────────────────────────────
